@@ -6,7 +6,7 @@
 
 **Architecture:** Pure TypeScript modules under `src/engine/` with no React or DOM dependency (the UI in Plan 1B consumes them). Content is JSON under `content/`, parsed by Zod schemas into an indexed `ContentPack`. The generator is deterministic from `(template, seed, history)`. Progress lives in IndexedDB via Dexie, tested with `fake-indexeddb`. Audio resolution (Heart → AI clip → device TTS) is an interface-driven class with fakes in tests; the Howler and Web Speech implementations are thin adapters.
 
-**Tech Stack:** Node 26, npm, TypeScript (strict), Vite 7 + Vitest, Zod 4, Dexie 4, fast-check, fake-indexeddb, tsx (for scripts), Azure Speech REST API. (Howler.js is consumed through an injected constructor here and installed by Plan 1B.)
+**Tech Stack:** Node 26, npm, TypeScript 7 (strict), Vite 8 + Vitest 5, Zod 4, Dexie 4, fast-check, fake-indexeddb, tsx (for scripts), Azure Speech REST API. (Howler.js is consumed through an injected constructor here and installed by Plan 1B.)
 
 **Spec:** `docs/superpowers/specs/2026-10-01-buddy-learning-game-design.md` — this plan implements §5 (content model), §5.4–5.6 (variation, mastery, levels), §7 (audio), §10 (data entities, storage), §13 (engine units), §14 (engine tests), and the engine half of §15 M1. Screens, Buddy's rig, mechanics' UI and Home scenes are Plan 1B.
 
@@ -15,8 +15,11 @@
 ## Conventions used throughout
 
 - Repository root: `/Users/bharat.gadde/Developer/others/Kids Learning` (note the space — always quote paths).
+- Work happens on branch `plan-1a-engine`; never commit to `main`.
+- npm's cache is redirected to `.npm-cache/` (gitignored) by `npm_config_cache` in `.claude/settings.local.json`, because the sandbox blocks writes to `~/.npm`. If npm still reports EPERM/EACCES under `~/.npm`, add `--cache "$TMPDIR/npm-cache"` to the command.
+- Versions current when this plan was written: TypeScript 7, Vite 8, Vitest 5, Zod 4.6, Dexie 4.4, fast-check 4.10, fake-indexeddb 6, tsx 4. If `tsc` rejects a `tsconfig.json` option as removed or deprecated, adjust that option minimally and say so in the report.
 - Tests live next to the code as `*.test.ts` and run with `npm test` (Vitest, Node environment).
-- Every task ends with a commit. Commit messages are imperative, lower-case prefix (`feat:`, `test:`, `chore:`, `content:`), and end with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Every task ends with a commit. Commit messages are imperative, lower-case prefix (`feat:`, `test:`, `chore:`, `content:`), and end with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Zod 4 API: `z.prettifyError`, `schema.keyof()`, `z.discriminatedUnion('kind', [...])`.
 - `noUncheckedIndexedAccess` is on: index results are `T | undefined`; use `!` only when a prior check guarantees presence.
 
@@ -83,7 +86,8 @@ Run from the repository root:
 ```bash
 cd "/Users/bharat.gadde/Developer/others/Kids Learning"
 npm init -y >/dev/null
-npm pkg set name="buddy" private=true type="module" version="0.1.0"
+npm pkg set name=buddy type=module version=0.1.0
+npm pkg set private=true --json
 npm install zod dexie
 npm install -D typescript vite vitest fast-check fake-indexeddb tsx @types/node
 ```
@@ -163,7 +167,7 @@ Expected: `tsc` prints nothing; Vitest reports `No test files found` and exits 0
 git add package.json package-lock.json tsconfig.json vite.config.ts .gitignore .env.example
 git commit -m "chore: scaffold TypeScript, Vitest and scripts for the engine
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -306,7 +310,7 @@ Expected: PASS (8 tests).
 git add src/engine/rng.ts src/engine/rng.test.ts
 git commit -m "feat(engine): seeded rng with hashing, shuffle and pick helpers
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -453,7 +457,8 @@ export type ObjectItem = z.infer<typeof ObjectItemSchema>;
 
 export const GlyphSchema = z.object({
   id,
-  char: z.string().length(1),
+  /** what is drawn: one character, or "10" */
+  char: z.string().min(1).max(2),
   kind: z.enum(['letter', 'number']),
   case: z.enum(['upper', 'lower']).optional(),
   pairKey: z.string().min(1),
@@ -593,7 +598,7 @@ Expected: PASS (9 tests).
 git add src/engine/content/schema.ts src/engine/content/schema.test.ts
 git commit -m "feat(content): zod schemas for pools, templates, rules and the raw pack
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -769,7 +774,7 @@ Expected: PASS (3 tests).
 git add src/engine/content/load.ts src/engine/content/readPackFromDisk.ts src/engine/content/load.test.ts
 git commit -m "feat(content): indexed pack loader and node disk reader
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -905,8 +910,10 @@ describe('queryItems', () => {
     expect(queryItems(pack, { pool: 'glyphs', glyph: { kind: 'number', min: 1, max: 5 } }).map((c) => c.item.id)).toEqual(['n3']);
   });
 
-  it('filters by explicit ids', () => {
-    expect(queryItems(pack, { pool: 'objects', ids: ['bus'] }).map((c) => c.item.id)).toEqual(['bus']);
+  it('filters by explicit ids and exposes the id at the top level', () => {
+    const found = queryItems(pack, { pool: 'objects', ids: ['bus'] });
+    expect(found.map((c) => c.item.id)).toEqual(['bus']);
+    expect(found[0]?.id).toBe('bus');
   });
 });
 
@@ -947,7 +954,13 @@ import type { ContentPack } from '../content/load';
 import type { Glyph, ObjectItem, ObjectTags, Query } from '../content/schema';
 import type { RoundItem } from './types';
 
-export type Candidate = { kind: 'object'; item: ObjectItem } | { kind: 'glyph'; item: Glyph };
+/** A pool entry. `id` mirrors `item.id` so candidates can be sampled (and de-duplicated) by id. */
+export type Candidate =
+  | { kind: 'object'; id: string; item: ObjectItem }
+  | { kind: 'glyph'; id: string; item: Glyph };
+
+export const objectCandidate = (item: ObjectItem): Candidate => ({ kind: 'object', id: item.id, item });
+export const glyphCandidate = (item: Glyph): Candidate => ({ kind: 'glyph', id: item.id, item });
 
 function matchesObject(o: ObjectItem, q: Query): boolean {
   if (q.ids && !q.ids.includes(o.id)) return false;
@@ -976,10 +989,8 @@ function matchesGlyph(g: Glyph, q: Query): boolean {
 
 /** All pool entries matching a template query, in pack order (deterministic). */
 export function queryItems(pack: ContentPack, q: Query): Candidate[] {
-  if (q.pool === 'objects') {
-    return [...pack.objects.values()].filter((o) => matchesObject(o, q)).map((item) => ({ kind: 'object', item }));
-  }
-  return [...pack.glyphs.values()].filter((g) => matchesGlyph(g, q)).map((item) => ({ kind: 'glyph', item }));
+  if (q.pool === 'objects') return [...pack.objects.values()].filter((o) => matchesObject(o, q)).map((o) => objectCandidate(o));
+  return [...pack.glyphs.values()].filter((g) => matchesGlyph(g, q)).map((g) => glyphCandidate(g));
 }
 
 export function toRoundItem(c: Candidate): RoundItem {
@@ -1012,7 +1023,7 @@ Expected: PASS (7 tests).
 git add src/engine/generator/types.ts src/engine/generator/items.ts src/engine/generator/items.test.ts
 git commit -m "feat(generator): round types and pool queries
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1309,7 +1320,7 @@ Expected: PASS (8 tests).
 git add src/engine/content/validate.ts src/engine/content/validate.test.ts
 git commit -m "feat(content): cross-reference and rule/mechanic validator
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1549,11 +1560,9 @@ Letters share one spoken line per pair (`glyph.letter.a` says "A"); `confusables
   { "id": "n7", "char": "7", "kind": "number", "pairKey": "n7", "value": 7, "lineId": "glyph.num.7", "confusables": ["1"] },
   { "id": "n8", "char": "8", "kind": "number", "pairKey": "n8", "value": 8, "lineId": "glyph.num.8", "confusables": ["3"] },
   { "id": "n9", "char": "9", "kind": "number", "pairKey": "n9", "value": 9, "lineId": "glyph.num.9", "confusables": ["6"] },
-  { "id": "n10", "char": "⒑", "kind": "number", "pairKey": "n10", "value": 10, "lineId": "glyph.num.10", "confusables": [] }
+  { "id": "n10", "char": "10", "kind": "number", "pairKey": "n10", "value": 10, "lineId": "glyph.num.10", "confusables": [] }
 ]
 ```
-
-> Note on `n10`: the schema requires a one-character `char`; the mechanic in Plan 1B renders `value` for numbers, not `char`, so the placeholder glyph is never shown.
 
 - [ ] **Step 6: Write `content/scenes.json`**
 
@@ -1838,21 +1847,24 @@ Object and glyph name lines are one variant each (they are spliced into prompts)
 ```ts
 // scripts/validate-content.ts
 import { readPack } from '../src/engine/content/readPackFromDisk';
-import { ContentError } from '../src/engine/content/load';
+import { ContentError, type ContentPack } from '../src/engine/content/load';
 import { validatePack } from '../src/engine/content/validate';
 
 const strict = process.argv.includes('--strict');
 
-let pack;
-try {
-  pack = readPack();
-} catch (e) {
-  if (e instanceof ContentError) {
-    console.error(`Content does not match the schema:\n${e.message}`);
-    process.exit(1);
+function loadOrExit(): ContentPack {
+  try {
+    return readPack();
+  } catch (e) {
+    if (e instanceof ContentError) {
+      console.error(`Content does not match the schema:\n${e.message}`);
+      process.exit(1);
+    }
+    throw e;
   }
-  throw e;
 }
+
+const pack = loadOrExit();
 
 const issues = validatePack(pack);
 const errors = issues.filter((i) => i.level === 'error');
@@ -1875,7 +1887,7 @@ Expected: the test passes; the CLI prints only `▲` warnings (8 topics below th
 git add content scripts/validate-content.ts src/engine/content/pack.test.ts
 git commit -m "content: M1 pack (10 topics, 15 templates) and validate CLI
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1894,7 +1906,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import { mulberry32 } from '../rng';
 import { sampleWithoutRecent, pickDistractors } from './sampling';
-import type { Candidate } from './items';
+import { glyphCandidate, objectCandidate, type Candidate } from './items';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `i${i}` }));
 
@@ -1925,14 +1937,14 @@ describe('sampleWithoutRecent', () => {
   });
 });
 
-const obj = (id: string, category: string, colour?: string): Candidate => ({
-  kind: 'object',
-  item: { id, name: id, lineId: `obj.${id}`, asset: `${id}.svg`, category, tags: colour ? { colour } : {} },
-});
-const glyph = (char: string, confusables: string[]): Candidate => ({
-  kind: 'glyph',
-  item: { id: char, char, kind: 'letter', case: 'lower', pairKey: char, lineId: `glyph.letter.${char}`, confusables },
-});
+const obj = (id: string, category: string, colour?: string): Candidate =>
+  objectCandidate({ id, name: id, lineId: `obj.${id}`, asset: `${id}.svg`, category, tags: colour ? { colour } : {} });
+// Upper and lower case of a letter share one spoken line, exactly as in content/glyphs.json.
+const glyph = (char: string, confusables: string[]): Candidate =>
+  glyphCandidate({
+    id: char, char, kind: 'letter', case: char === char.toLowerCase() ? 'lower' : 'upper',
+    pairKey: char.toLowerCase(), lineId: `glyph.letter.${char.toLowerCase()}`, confusables,
+  });
 
 describe('pickDistractors', () => {
   const pool = [obj('apple', 'fruit', 'red'), obj('tomato', 'vegetable', 'red'), obj('banana', 'fruit', 'yellow'), obj('car', 'thing'), obj('bus', 'thing'), obj('mango', 'fruit')];
@@ -1964,6 +1976,14 @@ describe('pickDistractors', () => {
   it('high similarity prefers objects sharing a colour', () => {
     const out = pickDistractors(mulberry32(5), pool, [pool[0]!], 1, 'high');
     expect(out[0]?.item.id).toBe('tomato');
+  });
+
+  it('never offers a distractor spoken the same as the answer', () => {
+    const letters = [glyph('B', ['b']), glyph('b', ['d']), glyph('d', []), glyph('x', [])];
+    for (let seed = 0; seed < 30; seed++) {
+      const out = pickDistractors(mulberry32(seed), letters, [letters[0]!], 3, 'high');
+      expect(out.map((c) => c.id).sort()).toEqual(['d', 'x']);
+    }
   });
 });
 ```
@@ -2063,8 +2083,10 @@ export function pickDistractors(
   similarity: Difficulty['distractorSimilarity'],
 ): Candidate[] {
   const first = correct[0];
-  const exclude = new Set(correct.map((c) => c.item.id));
-  const rest = pool.filter((c) => !exclude.has(c.item.id));
+  // Never offer the answer itself, or anything *spoken* the same (the letters "B" and "b" share one line).
+  const excludeIds = new Set(correct.map((c) => c.id));
+  const excludeLines = new Set(correct.map((c) => c.item.lineId));
+  const rest = pool.filter((c) => !excludeIds.has(c.id) && !excludeLines.has(c.item.lineId));
   if (!first || rest.length === 0 || n <= 0) return [];
 
   const sameCategory = rest.filter((c) => categoryOf(c) === categoryOf(first));
@@ -2118,7 +2140,7 @@ export function placeAt<T>(correct: T, others: readonly T[], slot: number): T[] 
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/generator/sampling.test.ts src/engine/generator/slots.test.ts`
-Expected: PASS (11 tests).
+Expected: PASS (12 tests).
 
 - [ ] **Step 7: Commit**
 
@@ -2126,7 +2148,7 @@ Expected: PASS (11 tests).
 git add src/engine/generator/sampling.ts src/engine/generator/slots.ts src/engine/generator/sampling.test.ts src/engine/generator/slots.test.ts
 git commit -m "feat(generator): sampling without recent repeats, similarity distractors, slot placement
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2172,7 +2194,9 @@ describe('named', () => {
     if (r.payload.kind !== 'choose') return;
     expect(r.payload.options.length).toBe(4);
     expect(r.payload.correctIds.length).toBe(1);
-    expect(r.payload.options[r.correctSlot!]!.id).toBe(r.payload.correctIds[0]);
+    const correct = r.payload.options[r.correctSlot!]!;
+    expect(correct.id).toBe(r.payload.correctIds[0]);
+    expect(r.payload.options.filter((o) => o.lineId === correct.lineId)).toHaveLength(1); // never "B" beside "b"
     expect(r.slots.target).toBe(r.payload.correctIds[0]);
     expect(r.itemIds).toEqual(r.payload.correctIds);
   });
@@ -2186,12 +2210,12 @@ describe('named', () => {
 
 describe('size', () => {
   it('tap-the-one: same object at several scales, the largest is correct', () => {
-    const r = buildPayload(ctx('big-small.tap', 11, 2));
-    if (r.payload.kind !== 'choose') throw new Error('expected choose');
-    const scales = r.payload.options.map((o) => o.scale!);
+    const p = buildPayload(ctx('big-small.tap', 11, 2)).payload;
+    if (p.kind !== 'choose') throw new Error('expected choose');
+    const scales = p.options.map((o) => o.scale!);
     expect(scales.length).toBe(3);
-    expect(new Set(r.payload.options.map((o) => o.id.split('@')[0])).size).toBe(1);
-    const correct = r.payload.options.find((o) => o.id === r.payload.correctIds[0])!;
+    expect(new Set(p.options.map((o) => o.id.split('@')[0])).size).toBe(1);
+    const correct = p.options.find((o) => o.id === p.correctIds[0])!;
     expect(correct.scale).toBe(Math.max(...scales));
   });
 
@@ -2314,8 +2338,8 @@ Expected: FAIL — `Cannot find module './rules'`.
 // src/engine/generator/rules.ts
 import type { ContentPack } from '../content/load';
 import type { Bin, Difficulty, Glyph, Template } from '../content/schema';
-import { randInt, shuffle, type Rng } from '../rng';
-import { pluralOf, queryItems, tagOf, categoryOf, toRoundItem, type Candidate } from './items';
+import { shuffle, type Rng } from '../rng';
+import { categoryOf, glyphCandidate, objectCandidate, pluralOf, queryItems, tagOf, toRoundItem, type Candidate } from './items';
 import { pickDistractors, sampleWithoutRecent } from './sampling';
 import { chooseSlot, placeAt } from './slots';
 import type { Level, Payload, RoundBin, RoundItem } from './types';
@@ -2531,7 +2555,7 @@ function buildCount(ctx: RuleContext): RuleResult {
   if (ctx.template.mechanic === 'drag-to-match') {
     const ns = shuffle(ctx.rng, numbers).slice(0, ctx.difficulty.options);
     const left = ns.map((n) => groupItem(obj, n));
-    const right = shuffle(ctx.rng, ns.map((n) => toRoundItem({ kind: 'glyph', item: numberGlyph(ctx.pack, n) })));
+    const right = shuffle(ctx.rng, ns.map((n) => toRoundItem(glyphCandidate(numberGlyph(ctx.pack, n)))));
     const pairs = ns.map((n): [string, string] => [`${obj.item.id}x${n}`, numberGlyph(ctx.pack, n).id]);
     return { payload: { kind: 'pairs', left, right, pairs }, slots: {}, itemIds: [obj.item.id], correctSlot: null };
   }
@@ -2541,8 +2565,8 @@ function buildCount(ctx: RuleContext): RuleResult {
   const byDistance = [...near(1), ...near(2), ...near(3), ...shuffle(ctx.rng, numbers.filter((x) => x !== n))];
   const ordered = ctx.difficulty.distractorSimilarity === 'low' ? shuffle(ctx.rng, byDistance) : byDistance;
   const distractorNs = [...new Set(ordered)].slice(0, ctx.difficulty.options - 1);
-  const correct = toRoundItem({ kind: 'glyph', item: numberGlyph(ctx.pack, n) });
-  const others = distractorNs.map((d) => toRoundItem({ kind: 'glyph', item: numberGlyph(ctx.pack, d) }));
+  const correct = toRoundItem(glyphCandidate(numberGlyph(ctx.pack, n)));
+  const others = distractorNs.map((d) => toRoundItem(glyphCandidate(numberGlyph(ctx.pack, d))));
   const { options, slot } = chooseLayout(ctx, correct, others);
   return {
     payload: { kind: 'choose', options, correctIds: [correct.id], stimulus: groupItem(obj, n) },
@@ -2606,8 +2630,8 @@ function buildPair(ctx: RuleContext): RuleResult {
   }
   const complete = [...byKey.entries()].filter(([, e]) => e.upper && e.lower).map(([id, e]) => ({ id, upper: e.upper as Glyph, lower: e.lower as Glyph }));
   const chosen = sampleWithoutRecent(ctx.rng, complete, k, ctx.avoid);
-  const left = chosen.map((p) => toRoundItem({ kind: 'glyph', item: p.upper }));
-  const right = shuffle(ctx.rng, chosen.map((p) => toRoundItem({ kind: 'glyph', item: p.lower })));
+  const left = chosen.map((p) => toRoundItem(glyphCandidate(p.upper)));
+  const right = shuffle(ctx.rng, chosen.map((p) => toRoundItem(glyphCandidate(p.lower))));
   const pairs = chosen.map((p): [string, string] => [p.upper.id, p.lower.id]);
   return { payload: { kind: 'pairs', left, right, pairs }, slots: {}, itemIds: chosen.map((p) => p.id), correctSlot: null };
 }
@@ -2619,7 +2643,7 @@ function buildSequence(ctx: RuleContext): RuleResult {
   const ordered = seq.steps.map((id) => {
     const o = ctx.pack.objects.get(id);
     if (!o) throw new GenerationError(`sequence ${seq.id} references unknown object ${id}`);
-    return toRoundItem({ kind: 'object', item: o });
+    return toRoundItem(objectCandidate(o));
   });
   let items = shuffle(ctx.rng, ordered);
   for (let tries = 0; tries < 10 && items.every((it, i) => it.id === ordered[i]?.id); tries++) items = shuffle(ctx.rng, ordered);
@@ -2638,7 +2662,7 @@ function buildScenario(ctx: RuleContext): RuleResult {
   const choices = shuffle(ctx.rng, sc.choices).map((ch) => {
     const o = ctx.pack.objects.get(ch.objectId);
     if (!o) throw new GenerationError(`scenario ${sc.id} references unknown object ${ch.objectId}`);
-    return { ...toRoundItem({ kind: 'object', item: o }), correct: ch.correct, ...(ch.reactionLineId ? { reactionLineId: ch.reactionLineId } : {}) };
+    return { ...toRoundItem(objectCandidate(o)), correct: ch.correct, ...(ch.reactionLineId ? { reactionLineId: ch.reactionLineId } : {}) };
   });
   return {
     payload: { kind: 'scenario', scenarioId: sc.id, vignette: sc.vignette, narrationLineId: sc.narrationLineId, choices },
@@ -2675,7 +2699,7 @@ Expected: PASS (13 tests).
 git add src/engine/generator/rules.ts src/engine/generator/types.ts src/engine/generator/rules.test.ts
 git commit -m "feat(generator): payload builders for named, size, tag, category, count, pair, sequence and scenario rules
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2914,7 +2938,7 @@ Expected: PASS (9 tests). If the property test reports a failing seed, the shrun
 git add src/engine/generator/round.ts src/engine/generator/round.test.ts
 git commit -m "feat(generator): deterministic rounds and sets with wording, scene and slot variation
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2987,7 +3011,7 @@ Expected: readable listings; in `big-small.tap` the ✓ moves between slots acro
 git add scripts/inspect-round.ts
 git commit -m "feat(scripts): inspect-round CLI to print generated sets
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -3244,7 +3268,7 @@ Expected: PASS (6 tests).
 git add src/engine/progress/types.ts src/engine/progress/mastery.ts src/engine/progress/mastery.test.ts
 git commit -m "feat(progress): record types and mastery-by-form status
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -3401,7 +3425,7 @@ Expected: PASS (9 tests).
 git add src/engine/progress/difficulty.ts src/engine/progress/bridging.ts src/engine/progress/difficulty.test.ts src/engine/progress/bridging.test.ts
 git commit -m "feat(progress): difficulty ramp and bridging form preference
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -3618,7 +3642,7 @@ Expected: PASS (6 tests).
 git add src/engine/progress/picker.ts src/engine/progress/picker.test.ts
 git commit -m "feat(progress): template picker with rotation, bridging and shaky-goal weighting; topic suggestion
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -3816,7 +3840,7 @@ Expected: PASS (5 tests).
 git add src/engine/progress/db.ts src/engine/progress/db.test.ts
 git commit -m "feat(progress): dexie database with profiles, sessions, attempts, set results and settings
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -3993,7 +4017,7 @@ Expected: PASS (4 tests).
 git add src/engine/progress/history.ts src/engine/progress/history.test.ts
 git commit -m "feat(progress): attempt records from rounds and history builders for generator and picker
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -4133,7 +4157,7 @@ Expected: PASS (5 tests).
 git add src/engine/audio/lines.ts src/engine/audio/lines.test.ts
 git commit -m "feat(audio): line segmentation and clip ids
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -4420,7 +4444,7 @@ Expected: PASS (8 tests).
 git add src/engine/audio/manager.ts src/engine/audio/manifest.ts src/engine/audio/manager.test.ts
 git commit -m "feat(audio): AudioManager with Heart → clip → TTS resolution, replay and stop
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -4681,7 +4705,7 @@ Expected: PASS (6 tests).
 git add src/engine/audio/tts.ts src/engine/audio/howlerPlayer.ts src/engine/audio/tts.test.ts src/engine/audio/howlerPlayer.test.ts
 git commit -m "feat(audio): web speech TTS and Howler clip player adapters
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -4756,7 +4780,7 @@ Expected: PASS (2 tests).
 git add src/engine/time.ts src/engine/time.test.ts
 git commit -m "feat(engine): time-of-day blocks
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -4832,19 +4856,21 @@ describe('synthesize', () => {
   const cfg = { key: 'k', region: 'centralindia', voice: 'en-IN-NeerjaNeural', rate: '-10%' };
 
   it('posts SSML to the regional endpoint with the right headers and returns bytes', async () => {
-    let seen: { url: string; init: RequestInit } | null = null;
+    const calls: Array<{ url: string; init: RequestInit }> = [];
     const fakeFetch: typeof fetch = async (url, init) => {
-      seen = { url: String(url), init: init ?? {} };
+      calls.push({ url: String(url), init: init ?? {} });
       return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
     };
     const bytes = await synthesize('hello', cfg, fakeFetch);
     expect([...bytes]).toEqual([1, 2, 3]);
-    expect(seen!.url).toBe('https://centralindia.tts.speech.microsoft.com/cognitiveservices/v1');
-    const headers = seen!.init.headers as Record<string, string>;
+    expect(calls).toHaveLength(1);
+    const call = calls[0]!;
+    expect(call.url).toBe('https://centralindia.tts.speech.microsoft.com/cognitiveservices/v1');
+    const headers = call.init.headers as Record<string, string>;
     expect(headers['Ocp-Apim-Subscription-Key']).toBe('k');
     expect(headers['X-Microsoft-OutputFormat']).toBe('audio-24khz-48kbitrate-mono-mp3');
     expect(headers['Content-Type']).toBe('application/ssml+xml');
-    expect(String(seen!.init.body)).toContain('hello');
+    expect(String(call.init.body)).toContain('hello');
   });
 
   it('throws with the status and body on failure', async () => {
@@ -4953,7 +4979,7 @@ Expected: PASS (5 tests).
 git add scripts/voice/plan.ts scripts/voice/azure.ts scripts/voice/plan.test.ts scripts/voice/azure.test.ts
 git commit -m "feat(voice): clip planning against the manifest and the Azure TTS adapter
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -5062,7 +5088,7 @@ Expected: `0 clips up to date · N to generate · 0 orphaned` with N > 200, foll
 git add scripts/gen-voice.ts public/audio/manifest.json
 git commit -m "feat(voice): gen-voice CLI (Azure, resume-safe, dry-run, prune) and empty manifest
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -5104,7 +5130,7 @@ Expected: typecheck clean; all test files pass (rng, schema, load, validate, pac
 git add README.md
 git commit -m "docs: engine commands in README
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 - [ ] **Step 4: Hand-off — what Plan 1B builds on**

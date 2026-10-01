@@ -6,3 +6,6 @@
 
 # OS
 .DS_Store
+
+# npm cache (redirected here because the sandbox blocks ~/.npm)
+.npm-cache/
