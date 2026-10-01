@@ -1,0 +1,36 @@
+{
+  "name": "buddy",
+  "version": "0.1.0",
+  "description": "A touch-first web app for a child aged 4–5: look after Buddy the baby elephant through his day (habits, manners, feelings) and play with him on a map of mini-games covering the *My First Steps with Cambridge* Lower KG syllabus.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "validate": "tsx scripts/validate-content.ts",
+    "inspect": "tsx scripts/inspect-round.ts",
+    "voice": "tsx scripts/gen-voice.ts",
+    "check": "npm run typecheck && npm run test && npm run validate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "dexie": "^4.4.6",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "fake-indexeddb": "^6.2.5",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

@@ -9,3 +9,9 @@
 
 # npm cache (redirected here because the sandbox blocks ~/.npm)
 .npm-cache/
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
