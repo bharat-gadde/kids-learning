@@ -1,0 +1,8 @@
+# Claude Code personal overrides
+.claude/settings.local.json
+
+# Brainstorming visual-companion mockups
+.superpowers/
+
+# OS
+.DS_Store
