@@ -99,6 +99,8 @@ describe('ScenarioSchema', () => {
   it('allows two or three choices', () => {
     const choice = (objectId: string, correct: boolean) => ({ objectId, correct });
     const sc = { id: 'sc', topicId: 't', narrationLineId: 'sc', vignette: 'v.svg' };
+    expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true)] }).success).toBe(false);
+    expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true), choice('b', false)] }).success).toBe(true);
     expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true), choice('b', false), choice('c', false)] }).success).toBe(true);
     expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true), choice('b', false), choice('c', false), choice('d', false)] }).success).toBe(false);
   });
@@ -110,9 +112,17 @@ describe('LineSchema', () => {
     expect(LineSchema.safeParse({ id: 'x', variants: ['Tap the {target}'] }).success).toBe(true);
   });
 
-  it('restricts ids to file-name-safe characters', () => {
+  it('restricts ids to lowercase file-name-safe characters', () => {
     expect(LineSchema.safeParse({ id: 'obj.ice-cream', variants: ['ice cream'] }).success).toBe(true);
     expect(LineSchema.safeParse({ id: 'obj/ice cream#1', variants: ['ice cream'] }).success).toBe(false);
+    expect(LineSchema.safeParse({ id: 'Obj.Apple', variants: ['apple'] }).success).toBe(false);
+  });
+
+  it('applies the same rule to every reference to a line', () => {
+    const apple = { id: 'apple', name: 'apple', asset: 'objects/apple.svg', category: 'fruit' };
+    expect(ObjectItemSchema.safeParse({ ...apple, lineId: 'obj.apple' }).success).toBe(true);
+    expect(ObjectItemSchema.safeParse({ ...apple, lineId: '../../escape' }).success).toBe(false);
+    expect(ObjectItemSchema.safeParse({ ...apple, lineId: 'obj/apple' }).success).toBe(false);
   });
 });
 

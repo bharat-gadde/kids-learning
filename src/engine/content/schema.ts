@@ -18,28 +18,28 @@ export type LevelId = (typeof LEVELS)[number];
 
 // Every content object is strict: content ships inside the app, so an unknown key is always a typo.
 const id = z.string().min(1);
-/** Line ids become clip file names and URL path segments (scripts/gen-voice.ts, audio/manifest.ts). */
+/** Line ids — and every reference to one — become clip file names and URL path segments (gen-voice, audio/manifest). */
 const lineId = z.string().regex(/^[a-z0-9][a-z0-9._-]*$/, 'line ids use lowercase letters, digits, ".", "_" and "-"');
 /** what is drawn: one character, or "10" */
 const glyphChar = z.string().min(1).max(2);
 
 export const ObjectTagsSchema = z.strictObject({
   sizePair: z.boolean().optional(),
-  colour: z.string().optional(),
+  colour: z.string().min(1).optional(),
   countable: z.boolean().optional(),
   beginsWith: z.string().length(1).optional(),
   vowelSound: z.enum(['a', 'e', 'i', 'o', 'u']).optional(),
-  rhymeGroup: z.string().optional(),
+  rhymeGroup: z.string().min(1).optional(),
   cvc: z.boolean().optional(),
-  habitat: z.string().optional(),
-  season: z.string().optional(),
+  habitat: z.string().min(1).optional(),
+  season: z.string().min(1).optional(),
   transportMode: z.enum(['land', 'water', 'air']).optional(),
-  sense: z.string().optional(),
-  room: z.string().optional(),
+  sense: z.string().min(1).optional(),
+  room: z.string().min(1).optional(),
   healthy: z.boolean().optional(),
   teethFriendly: z.boolean().optional(),
   neatAndClean: z.boolean().optional(),
-  sound: z.string().optional(),
+  sound: z.string().min(1).optional(),
 });
 export type ObjectTags = z.infer<typeof ObjectTagsSchema>;
 export const TagKeySchema = ObjectTagsSchema.keyof();
@@ -48,7 +48,7 @@ export const ObjectItemSchema = z.strictObject({
   id,
   name: z.string().min(1),
   plural: z.string().min(1).optional(),
-  lineId: id,
+  lineId,
   asset: z.string().min(1),
   category: z.string().min(1),
   tags: ObjectTagsSchema.default({}),
@@ -63,7 +63,7 @@ export const GlyphSchema = z.strictObject({
   case: z.enum(['upper', 'lower']).optional(),
   pairKey: z.string().min(1),
   value: z.number().int().min(0).optional(),
-  lineId: id,
+  lineId,
   confusables: z.array(glyphChar).default([]),
 })
   .refine((g) => g.kind !== 'number' || g.value !== undefined, { path: ['value'], error: 'a number glyph needs a value' })
@@ -90,17 +90,17 @@ export type Topic = z.infer<typeof TopicSchema>;
 export const ScenarioSchema = z.strictObject({
   id,
   topicId: id,
-  narrationLineId: id,
+  narrationLineId: lineId,
   vignette: z.string().min(1),
   /** spec §6 #22: scene-then-choose offers two or three choices */
-  choices: z.array(z.strictObject({ objectId: id, correct: z.boolean(), reactionLineId: id.optional() })).min(2).max(3),
+  choices: z.array(z.strictObject({ objectId: id, correct: z.boolean(), reactionLineId: lineId.optional() })).min(2).max(3),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
 export const SequenceSchema = z.strictObject({
   id,
   topicId: id,
-  promptLineId: id,
+  promptLineId: lineId,
   steps: z.array(id).min(3).max(5),
 });
 export type Sequence = z.infer<typeof SequenceSchema>;
@@ -109,7 +109,7 @@ export const QuerySchema = z.strictObject({
   pool: z.enum(['objects', 'glyphs']),
   category: z.array(id).min(1).optional(),
   ids: z.array(id).min(1).optional(),
-  // every tag is already optional, so the tags schema doubles as a partial filter (never .refine() it: .partial()/.pick() throw on refined objects)
+  // every tag is optional, so the tags schema doubles as the query's partial filter — never .refine() it, or the refinement would constrain queries too
   tags: ObjectTagsSchema.optional(),
   hasTags: z.array(TagKeySchema).optional(),
   glyph: z.strictObject({
@@ -151,10 +151,10 @@ export type Difficulty = z.infer<typeof DifficultySchema>;
 export const BinSchema = z.strictObject({
   id,
   label: z.string().min(1),
-  lineId: id,
+  lineId,
   asset: z.string().min(1).optional(),
   /** the tag / category / size value this bin accepts */
-  match: z.union([z.string(), z.boolean()]).optional(),
+  match: z.union([z.string().min(1), z.boolean()]).optional(),
 });
 export type Bin = z.infer<typeof BinSchema>;
 
@@ -171,7 +171,7 @@ export const TemplateSchema = z.strictObject({
   difficulty: z.tuple([DifficultySchema, DifficultySchema, DifficultySchema]),
   flavour: z.strictObject({
     scenes: z.array(id).min(1),
-    promptLineId: id,
+    promptLineId: lineId,
     music: z.string().min(1).optional(),
   }),
   bins: z.array(BinSchema).min(1).optional(),
