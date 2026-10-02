@@ -8,6 +8,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": false,
+    "isolatedModules": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

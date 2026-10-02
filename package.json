@@ -1,7 +1,7 @@
 {
   "name": "buddy",
   "version": "0.1.0",
-  "description": "A touch-first web app for a child aged 4–5: look after Buddy the baby elephant through his day (habits, manners, feelings) and play with him on a map of mini-games covering the *My First Steps with Cambridge* Lower KG syllabus.",
+  "description": "Buddy — a touch-first learning game for Lower KG (ages 4–5)",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -11,9 +11,7 @@
     "voice": "node --import tsx scripts/gen-voice.ts",
     "check": "npm run typecheck && npm run test && npm run validate"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "module",
   "private": true,
   "dependencies": {
@@ -28,5 +26,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   }
 }
