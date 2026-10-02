@@ -1,6 +1,9 @@
 // src/engine/content/schema.test.ts
 import { describe, it, expect } from 'vitest';
-import { ObjectItemSchema, TemplateSchema, LineSchema, RawPackSchema, MECHANICS } from './schema';
+import {
+  DifficultySchema, GlyphSchema, LineSchema, MECHANICS, ObjectItemSchema, QuerySchema, RawPackSchema, ScenarioSchema,
+  TemplateSchema,
+} from './schema';
 
 const template = {
   id: 'big-small.tap',
@@ -44,10 +47,60 @@ describe('TemplateSchema', () => {
 
   it('requires exactly three difficulty levels', () => {
     expect(TemplateSchema.safeParse({ ...template, difficulty: template.difficulty.slice(0, 2) }).success).toBe(false);
+    expect(TemplateSchema.safeParse({ ...template, difficulty: [...template.difficulty, template.difficulty[2]] }).success).toBe(false);
   });
 
   it('rejects a rule with the wrong shape', () => {
     expect(TemplateSchema.safeParse({ ...template, rule: { kind: 'size' } }).success).toBe(false);
+  });
+
+  it('rejects a misspelled optional key anywhere in a template', () => {
+    const [d1, d2, d3] = template.difficulty;
+    expect(TemplateSchema.safeParse({ ...template, difficulty: [d1, d2, { ...d3, correctcount: 4 }] }).success).toBe(false);
+    expect(TemplateSchema.safeParse({ ...template, flavour: { ...template.flavour, musik: 'calm' } }).success).toBe(false);
+  });
+});
+
+describe('QuerySchema', () => {
+  it('rejects misspelled keys, including inside tags and the glyph filter', () => {
+    expect(QuerySchema.safeParse({ pool: 'objects', categroy: ['feeling'] }).success).toBe(false);
+    expect(QuerySchema.safeParse({ pool: 'objects', tags: { shinny: true } }).success).toBe(false);
+    expect(QuerySchema.safeParse({ pool: 'glyphs', glyph: { knd: 'letter' } }).success).toBe(false);
+    expect(QuerySchema.safeParse({ pool: 'objects', category: ['feeling'], tags: { healthy: true } }).success).toBe(true);
+  });
+});
+
+describe('DifficultySchema', () => {
+  it('rejects an inverted range', () => {
+    expect(DifficultySchema.safeParse({ options: 3, distractorSimilarity: 'low', range: [5, 1] }).success).toBe(false);
+    expect(DifficultySchema.safeParse({ options: 3, distractorSimilarity: 'low', range: [1, 5] }).success).toBe(true);
+  });
+});
+
+describe('GlyphSchema', () => {
+  const ten = { id: 'n10', char: '10', kind: 'number', pairKey: 'n10', value: 10, lineId: 'glyph.num.10' };
+
+  it('accepts a two-character numeral and defaults confusables', () => {
+    const r = GlyphSchema.safeParse(ten);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.confusables).toEqual([]);
+  });
+
+  it('requires a value for numbers and a case for letters', () => {
+    const { value: _value, ...noValue } = ten;
+    expect(GlyphSchema.safeParse(noValue).success).toBe(false);
+    const b = { id: 'b', char: 'b', kind: 'letter', pairKey: 'b', lineId: 'glyph.letter.b' };
+    expect(GlyphSchema.safeParse(b).success).toBe(false);
+    expect(GlyphSchema.safeParse({ ...b, case: 'lower' }).success).toBe(true);
+  });
+});
+
+describe('ScenarioSchema', () => {
+  it('allows two or three choices', () => {
+    const choice = (objectId: string, correct: boolean) => ({ objectId, correct });
+    const sc = { id: 'sc', topicId: 't', narrationLineId: 'sc', vignette: 'v.svg' };
+    expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true), choice('b', false), choice('c', false)] }).success).toBe(true);
+    expect(ScenarioSchema.safeParse({ ...sc, choices: [choice('a', true), choice('b', false), choice('c', false), choice('d', false)] }).success).toBe(false);
   });
 });
 
@@ -56,6 +109,11 @@ describe('LineSchema', () => {
     expect(LineSchema.safeParse({ id: 'x', variants: [] }).success).toBe(false);
     expect(LineSchema.safeParse({ id: 'x', variants: ['Tap the {target}'] }).success).toBe(true);
   });
+
+  it('restricts ids to file-name-safe characters', () => {
+    expect(LineSchema.safeParse({ id: 'obj.ice-cream', variants: ['ice cream'] }).success).toBe(true);
+    expect(LineSchema.safeParse({ id: 'obj/ice cream#1', variants: ['ice cream'] }).success).toBe(false);
+  });
 });
 
 describe('RawPackSchema', () => {
@@ -63,8 +121,11 @@ describe('RawPackSchema', () => {
     const r = RawPackSchema.safeParse({ topics: [], objects: [], glyphs: [], scenes: [], lines: [], scenarios: [], sequences: [], templates: [] });
     expect(r.success).toBe(true);
   });
+});
 
-  it('lists 23 mechanics', () => {
+describe('MECHANICS', () => {
+  it('lists 23 distinct mechanics', () => {
     expect(MECHANICS.length).toBe(23);
+    expect(new Set(MECHANICS).size).toBe(23);
   });
 });
