@@ -19,7 +19,7 @@
 - npm's cache is redirected to `.npm-cache/` (gitignored) by `npm_config_cache` in `.claude/settings.local.json`, because the sandbox blocks writes to `~/.npm`. If npm still reports EPERM/EACCES under `~/.npm`, add `--cache "$TMPDIR/npm-cache"` to the command.
 - Versions current when this plan was written: TypeScript 7, Vite 8, Vitest 5, Zod 4.6, Dexie 4.4, fast-check 4.10, fake-indexeddb 6, tsx 4. If `tsc` rejects a `tsconfig.json` option as removed or deprecated, adjust that option minimally and say so in the report.
 - Tests live next to the code as `*.test.ts` and run with `npm test` (Vitest, Node environment).
-- Every task ends with a commit. Commit messages are imperative, lower-case prefix (`feat:`, `test:`, `chore:`, `content:`), and end with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Every task ends with a commit. Commit messages are imperative, lower-case prefix (`feat:`, `test:`, `chore:`, `content:`), and end with a `Co-Authored-By` trailer naming the model that actually made the commit: each agent uses the trailer its own harness specifies. The commit steps below show the controller's trailer as an example; a different model name there is expected, not a deviation.
 - Zod 4 API: `z.prettifyError`, `schema.keyof()`, `z.discriminatedUnion('kind', [...])`.
 - `noUncheckedIndexedAccess` is on: index results are `T | undefined`; use `!` only when a prior check guarantees presence.
 
@@ -5165,3 +5165,22 @@ Plan 1B (M1 playable) consumes these interfaces unchanged:
 | §15 M1 engine half; voice generation | Tasks 21–22 |
 
 Not in this plan by design: everything visual (screens, Buddy rig, mechanic components, Home scenes, celebrations, timer UI, parent corner views, PWA shell, deploy) — Plan 1B.
+
+---
+
+## Execution notes (deviations from the task text, recorded as tasks complete)
+
+The task text above is kept as written; where execution differed, the change is listed here and the code on branch `plan-1a-engine` is authoritative.
+
+**Before execution**
+- Pool candidates carry a top-level `id` (`objectCandidate` / `glyphCandidate`) so recent-repeat avoidance works; distractors never share the answer's spoken line (`B` vs `b`).
+- `counting.give` level 3 uses 8 options (the schema caps options at 8); `recordAttempt` / `recordSetResult` return Dexie's `Promise<number | undefined>`.
+
+**Task 1 — scaffold**
+- `validate`, `inspect`, `voice` run as `node --import tsx scripts/<file>.ts`: the tsx CLI opens a Unix socket the sandbox forbids; the loader does not.
+- `tsconfig.json` adds `"isolatedModules": true` (tsx/Vitest/Vite compile per file; `tsc` must catch what they can't).
+- `.gitignore` ignores `.env`, `.env.*`, keeps `!.env.example`; `.env.example` lists the optional `AZURE_SPEECH_VOICE` / `AZURE_SPEECH_RATE`.
+- `package.json`: `license: UNLICENSED`, `engines.node` = Vitest 5's range, plain description; `main`, `directories`, empty `keywords` / `author` removed.
+
+**Task 2 — rng**
+- `randInt` removed (no planned caller). Tests pin the generator's output stream (`mulberry32`, FNV-1a vectors, `deriveSeed`, `shuffle`) so stored seeds keep replaying the same rounds; doc comments record seed coercion and how many draws `pick` / `shuffle` consume.
