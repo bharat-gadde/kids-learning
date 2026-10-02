@@ -10,18 +10,21 @@ export class ContentError extends Error {
   override name = 'ContentError';
 }
 
+export type PackGoal = Goal & { readonly topicId: string };
+
 export interface ContentPack {
-  raw: RawPack;
-  topics: Map<string, Topic>;
-  goals: Map<string, Goal & { topicId: string }>;
-  objects: Map<string, ObjectItem>;
-  glyphs: Map<string, Glyph>;
-  scenes: Map<string, Scene>;
-  lines: Map<string, Line>;
-  scenarios: Map<string, Scenario>;
-  sequences: Map<string, Sequence>;
-  templates: Map<string, Template>;
-  templatesByTopic: Map<string, Template[]>;
+  readonly raw: RawPack;
+  readonly topics: ReadonlyMap<string, Topic>;
+  readonly goals: ReadonlyMap<string, PackGoal>;
+  readonly objects: ReadonlyMap<string, ObjectItem>;
+  readonly glyphs: ReadonlyMap<string, Glyph>;
+  readonly scenes: ReadonlyMap<string, Scene>;
+  readonly lines: ReadonlyMap<string, Line>;
+  readonly scenarios: ReadonlyMap<string, Scenario>;
+  readonly sequences: ReadonlyMap<string, Sequence>;
+  readonly templates: ReadonlyMap<string, Template>;
+  /** templates per topic, in pack order (files sorted by name, then file order) — the picker's seeded choices depend on it */
+  readonly templatesByTopic: ReadonlyMap<string, readonly Template[]>;
 }
 
 function indexById<T extends { id: string }>(items: readonly T[], what: string): Map<string, T> {
@@ -33,14 +36,29 @@ function indexById<T extends { id: string }>(items: readonly T[], what: string):
   return m;
 }
 
+/** The `id` of the collection element an issue points into, so a message names the item rather than only its index. */
+function idAt(input: unknown, path: readonly PropertyKey[]): string | undefined {
+  const [collection, index] = path;
+  if (typeof collection !== 'string' || typeof index !== 'number') return undefined;
+  const list = (input as Record<string, unknown> | null | undefined)?.[collection];
+  const id = Array.isArray(list) ? (list[index] as { id?: unknown } | null | undefined)?.id : undefined;
+  return typeof id === 'string' ? id : undefined;
+}
+
 /** Parse raw JSON into an indexed pack. Throws ContentError on schema errors or duplicate ids. */
 export function loadPack(input: unknown): ContentPack {
   const parsed = RawPackSchema.safeParse(input);
-  if (!parsed.success) throw new ContentError(z.prettifyError(parsed.error));
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => {
+      const id = idAt(input, issue.path);
+      return id === undefined ? issue : { ...issue, message: `${issue.message} (in ${String(issue.path[0])} "${id}")` };
+    });
+    throw new ContentError(z.prettifyError({ issues }));
+  }
   const raw = parsed.data;
 
   const topics = indexById(raw.topics, 'topic');
-  const goals = new Map<string, Goal & { topicId: string }>();
+  const goals = new Map<string, PackGoal>();
   for (const t of raw.topics) {
     for (const g of t.goals) {
       if (goals.has(g.id)) throw new ContentError(`duplicate goal id: ${g.id}`);
