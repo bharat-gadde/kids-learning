@@ -1896,7 +1896,7 @@ function loadOrExit(): ContentPack {
     return readPack();
   } catch (e) {
     if (e instanceof ContentError) {
-      console.error(`Content does not match the schema:\n${e.message}`);
+      console.error(`Content could not be loaded:\n${e.message}`);
       process.exit(1);
     }
     throw e;
@@ -5235,7 +5235,16 @@ The task text above is kept as written; where execution differed, the change is 
 **Task 3 — schemas**
 - Every content object is `z.strictObject`, so a misspelled optional key is an error instead of being dropped. `range` is refined to `low <= high`; number glyphs need `value` and letters need `case`; scenario choices are capped at 3 (spec §6); `LevelId` is exported; query `category` / `ids` must be non-empty; optional strings (string tags, `Bin.asset` / `match`, `flavour.music`, `examFormat`) have `.min(1)`; line ids — and all seven fields that reference a line — match `^[a-z0-9][a-z0-9._-]*$`, because they become clip file names; `TAG_KEYS` is renamed `TagKeySchema`. 17 tests instead of 9.
 
+**Task 4 — loader**
+- `ContentPack` fields are `ReadonlyMap`s (buckets are `readonly Template[]`), so no consumer can reorder shared state; `PackGoal` names the goal-with-topic type.
+- Schema errors also name the item (`(in templates "letters.tap")`), not just its index in the flattened pack; a JSON syntax error names its file; template dotfiles are skipped (as Vite's glob does); a template file that isn't an array is rejected. 8 tests instead of 3.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
+- Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; two more tests.
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
+
+**Notes for Plan 1B** (surfaced by Plan 1A reviews)
+- Keep `node:` modules out of the app bundle: give app code a browser tsconfig without `node` types (or a lint rule); only `readPackFromDisk.ts` and `scripts/` may use Node APIs.
+- Build the browser pack from an eager `import.meta.glob('/content/templates/*.json')` and take `Object.values`: Vite sorts the keys in the same code-unit order as `readRawPack`, so template order — and therefore seeded picks — match Node.
