@@ -5039,6 +5039,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readPack } from '../src/engine/content/readPackFromDisk';
+import { validatePack } from '../src/engine/content/validate';
 import { EMPTY_MANIFEST, type ClipManifest } from '../src/engine/audio/manifest';
 import { planClips } from './voice/plan';
 import { synthesize } from './voice/azure';
@@ -5059,6 +5060,13 @@ const dryRun = process.argv.includes('--dry-run');
 const prune = process.argv.includes('--prune');
 
 const pack = readPack();
+// Never spend API calls on content that is known to be broken.
+const contentErrors = validatePack(pack).filter((i) => i.level === 'error');
+if (contentErrors.length > 0) {
+  for (const i of contentErrors) console.error(`✖ ${i.where}: ${i.message}`);
+  console.error(`${contentErrors.length} content error(s); fix them first (npm run validate).`);
+  process.exit(1);
+}
 const manifest: ClipManifest = existsSync(MANIFEST_PATH) ? (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as ClipManifest) : { ...EMPTY_MANIFEST, voice: VOICE };
 if (manifest.voice && manifest.voice !== VOICE) console.log(`Voice changed ${manifest.voice} → ${VOICE}: every clip will be regenerated.`);
 manifest.voice = VOICE;
@@ -5225,8 +5233,9 @@ The task text above is kept as written; where execution differed, the change is 
 - `randInt` removed (no planned caller). Tests pin the generator's output stream (`mulberry32`, FNV-1a vectors, `deriveSeed`, `shuffle`) so stored seeds keep replaying the same rounds; doc comments record seed coercion and how many draws `pick` / `shuffle` consume.
 
 **Task 3 — schemas**
-- Every content object is `z.strictObject`, so a misspelled optional key is an error instead of being dropped. `range` is refined to `low <= high`; number glyphs need `value` and letters need `case`; scenario choices are capped at 3 (spec §6); `LevelId` is exported; query `category` / `ids` must be non-empty; optional strings have `.min(1)`; line ids match `^[a-z0-9][a-z0-9._-]*$` (they become clip file names); `TAG_KEYS` is renamed `TagKeySchema`. 16 tests instead of 9.
+- Every content object is `z.strictObject`, so a misspelled optional key is an error instead of being dropped. `range` is refined to `low <= high`; number glyphs need `value` and letters need `case`; scenario choices are capped at 3 (spec §6); `LevelId` is exported; query `category` / `ids` must be non-empty; optional strings (string tags, `Bin.asset` / `match`, `flavour.music`, `examFormat`) have `.min(1)`; line ids — and all seven fields that reference a line — match `^[a-z0-9][a-z0-9._-]*$`, because they become clip file names; `TAG_KEYS` is renamed `TagKeySchema`. 17 tests instead of 9.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; two more tests.
 - Task 12: `Profile.level` is typed `LevelId`.
+- Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
