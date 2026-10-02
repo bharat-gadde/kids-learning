@@ -1777,7 +1777,7 @@ Object and glyph name lines are one variant each (they are spliced into prompts)
     "flavour": { "scenes": ["farm", "garden", "kitchen"], "promptLineId": "prompt.count_match" }, "level": "lkg" },
   { "id": "counting.give", "topicId": "counting", "goalId": "counting.give", "mechanic": "give-to-buddy", "itemClass": "groups",
     "query": { "pool": "objects", "tags": { "countable": true, "healthy": true } }, "rule": { "kind": "give-count" }, "rounds": 5,
-    "difficulty": [{ "options": 5, "distractorSimilarity": "low", "range": [1, 3] }, { "options": 7, "distractorSimilarity": "medium", "range": [2, 5] }, { "options": 9, "distractorSimilarity": "high", "range": [3, 7] }],
+    "difficulty": [{ "options": 5, "distractorSimilarity": "low", "range": [1, 3] }, { "options": 7, "distractorSimilarity": "medium", "range": [2, 5] }, { "options": 8, "distractorSimilarity": "high", "range": [3, 7] }],
     "bins": [{ "id": "buddy", "label": "Buddy", "lineId": "bin.buddy" }],
     "flavour": { "scenes": ["kitchen", "garden"], "promptLineId": "prompt.give_n" }, "level": "lkg" }
 ]
@@ -3797,11 +3797,12 @@ export async function startSession(db: BuddyDB, profileId: string): Promise<Sess
   return session;
 }
 
-export async function recordAttempt(db: BuddyDB, attempt: Omit<Attempt, 'id'>): Promise<number> {
+/** Resolves to the auto-incremented id (Dexie types it as possibly undefined because `id` is optional). */
+export async function recordAttempt(db: BuddyDB, attempt: Omit<Attempt, 'id'>): Promise<number | undefined> {
   return db.attempts.add(attempt as Attempt);
 }
 
-export async function recordSetResult(db: BuddyDB, result: Omit<SetResult, 'id'>): Promise<number> {
+export async function recordSetResult(db: BuddyDB, result: Omit<SetResult, 'id'>): Promise<number | undefined> {
   return db.setResults.add(result as SetResult);
 }
 
