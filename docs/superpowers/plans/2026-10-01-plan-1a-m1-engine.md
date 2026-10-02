@@ -1110,6 +1110,34 @@ describe('validatePack', () => {
     };
     expect(errorsOf(raw)).toContain('no correct choice');
   });
+
+  it('flags size bins that are not "large" and "small"', () => {
+    const raw = {
+      ...good,
+      lines: [...good.lines, line('bin.big', 'big basket'), line('bin.small', 'small basket')],
+      templates: [{
+        ...good.templates[0], mechanic: 'sort-into-bins',
+        bins: [{ id: 'big', label: 'big basket', lineId: 'bin.big', match: 'big' }, { id: 'small', label: 'small basket', lineId: 'bin.small', match: 'small' }],
+      }],
+    };
+    expect(errorsOf(raw)).toContain('size bins need match values "large" and "small"');
+  });
+
+  it('flags a count rule whose numbers have no numeral glyphs', () => {
+    const raw = {
+      ...good,
+      objects: good.objects.map((o) => ({ ...o, tags: { ...o.tags, countable: true } })),
+      templates: [{
+        ...good.templates[0], mechanic: 'drag-to-match', rule: { kind: 'count' },
+        difficulty: [
+          { options: 2, distractorSimilarity: 'low', range: [1, 3] },
+          { options: 3, distractorSimilarity: 'medium', range: [1, 5] },
+          { options: 4, distractorSimilarity: 'high', range: [1, 12] },
+        ],
+      }],
+    };
+    expect(errorsOf(raw)).toContain('count rule needs number glyphs for 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12');
+  });
 });
 ```
 
@@ -1132,23 +1160,26 @@ export interface Issue {
   message: string;
 }
 
-/** Which rule kinds each mechanic can be driven by. Mechanics outside M1 are filled in by later plans. */
+/**
+ * Which rule kinds each mechanic can be driven by — only the combinations Plan 1A's generator builds a correct
+ * payload for. Later plans add the rest (odd-one-out, stack-by-size, write, …) together with their builders.
+ */
 export const RULES_FOR_MECHANIC: Record<MechanicId, readonly RuleKind[]> = {
   'tap-the-one': ['named', 'size', 'tag', 'category', 'count'],
   'tap-all-that-match': ['tag', 'category'],
-  'pop-the-right-ones': ['named', 'tag', 'category'],
+  'pop-the-right-ones': ['tag', 'category'],
   'find-in-scene': ['named', 'tag'],
-  'odd-one-out': ['category'],
+  'odd-one-out': [],
   'spot-the-difference': [],
   'drag-to-match': ['pair', 'count'],
   'sort-into-bins': ['tag', 'category', 'size'],
-  'give-to-buddy': ['tag', 'give-count', 'size'],
+  'give-to-buddy': ['tag', 'give-count'],
   'sequence': ['sequence'],
   'assemble': [],
   'pattern-next': [],
   'shape-fit': [],
-  'stack-by-size': ['size'],
-  'write': ['named'],
+  'stack-by-size': [],
+  'write': [],
   'dot-to-dot': [],
   'colour-in': [],
   'maze': [],
@@ -1253,6 +1284,10 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
       const ok = cands.filter((c) => tagOf(c, 'sizePair') === true);
       if (ok.length < 1) err(where, 'size rule needs items tagged sizePair');
       else if (ok.length < cands.length) warn(where, `${cands.length - ok.length} queried items lack sizePair and will be ignored`);
+      if (t.bins) {
+        const matches = new Set(t.bins.map((b) => b.match));
+        if (!matches.has('large') || !matches.has('small')) err(where, 'size bins need match values "large" and "small"');
+      }
       break;
     }
     case 'tag': {
@@ -1275,8 +1310,12 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
         if (!d.range) err(where, `difficulty level ${i + 1} needs a range for ${t.rule.kind}`);
       });
       if (t.rule.kind === 'count') {
-        const numbers = [...pack.glyphs.values()].filter((g) => g.kind === 'number').length;
-        if (numbers < 11) err(where, 'count rule needs number glyphs 0–10');
+        // numerals are drawn for every number in a level's range and for nearby distractors (0–10)
+        const have = new Set([...pack.glyphs.values()].filter((g) => g.kind === 'number').map((g) => g.value));
+        const need = new Set<number>(Array.from({ length: 11 }, (_, n) => n));
+        for (const d of t.difficulty) if (d.range) for (let n = d.range[0]; n <= d.range[1]; n++) need.add(n);
+        const missing = [...need].filter((n) => !have.has(n)).sort((a, b) => a - b);
+        if (missing.length > 0) err(where, `count rule needs number glyphs for ${missing.join(', ')}`);
       }
       break;
     }
@@ -1312,7 +1351,7 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/content/validate.test.ts`
-Expected: PASS (8 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -3026,7 +3065,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ```ts
 // src/engine/progress/types.ts
-import type { MechanicId } from '../content/schema';
+import type { LevelId, MechanicId } from '../content/schema';
 import type { Level } from '../generator/types';
 
 export type Outcome = 'correct' | 'corrected' | 'shown';
@@ -3075,7 +3114,7 @@ export interface SetResult {
 export interface Profile {
   id: string;
   name: string;
-  level: 'nursery' | 'lkg' | 'ukg';
+  level: LevelId;
   buddy: { colour: string; name: string; accessory: string };
   createdAt: number;
 }
@@ -5184,3 +5223,10 @@ The task text above is kept as written; where execution differed, the change is 
 
 **Task 2 — rng**
 - `randInt` removed (no planned caller). Tests pin the generator's output stream (`mulberry32`, FNV-1a vectors, `deriveSeed`, `shuffle`) so stored seeds keep replaying the same rounds; doc comments record seed coercion and how many draws `pick` / `shuffle` consume.
+
+**Task 3 — schemas**
+- Every content object is `z.strictObject`, so a misspelled optional key is an error instead of being dropped. `range` is refined to `low <= high`; number glyphs need `value` and letters need `case`; scenario choices are capped at 3 (spec §6); `LevelId` is exported; query `category` / `ids` must be non-empty; optional strings have `.min(1)`; line ids match `^[a-z0-9][a-z0-9._-]*$` (they become clip file names); `TAG_KEYS` is renamed `TagKeySchema`. 16 tests instead of 9.
+
+**Plan text changed for later tasks** (already in the task text above — not deviations)
+- Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; two more tests.
+- Task 12: `Profile.level` is typed `LevelId`.
