@@ -1102,6 +1102,11 @@ describe('validatePack', () => {
     expect(errorsOf(raw)).toContain('query yields 2 items; level 3 needs 4');
   });
 
+  it('flags query ids that are not in the pool', () => {
+    const raw = { ...good, templates: [{ ...good.templates[0], query: { pool: 'objects', ids: ['apple', 'ball', 'cat', 'bus', 'aple'] } }] };
+    expect(errorsOf(raw)).toEqual(['query names unknown object aple']);
+  });
+
   it('flags a scenario without a correct choice', () => {
     const raw = {
       ...good,
@@ -1275,6 +1280,10 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
     return;
   }
   const cands = t.query ? queryItems(pack, t.query) : [];
+  if (t.query?.ids) {
+    const pool: ReadonlyMap<string, unknown> = t.query.pool === 'objects' ? pack.objects : pack.glyphs;
+    for (const id of t.query.ids) if (!pool.has(id)) err(where, `query names unknown ${t.query.pool === 'objects' ? 'object' : 'glyph'} ${id}`);
+  }
 
   switch (t.rule.kind) {
     case 'named':
@@ -1351,7 +1360,7 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/content/validate.test.ts`
-Expected: PASS (10 tests).
+Expected: PASS (11 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -2787,6 +2796,9 @@ describe('generateSet', () => {
           expect(r.level).toBe(level);
           expect(t.flavour.scenes).toContain(r.sceneId);
           expect(r.prompt.text.length).toBeGreaterThan(0);
+          const p = r.payload;
+          const ids = p.kind === 'choose' ? p.options : p.kind === 'pairs' ? [...p.left, ...p.right] : p.kind === 'scenario' ? p.choices : p.items;
+          expect(new Set(ids.map((i) => i.id)).size).toBe(ids.length); // renderers key items by id
         }
       }),
       { numRuns: 300 },
@@ -5199,7 +5211,7 @@ Plan 1B (M1 playable) consumes these interfaces unchanged:
 | Spec section | Where it lands |
 |---|---|
 | §5.1–5.3 hierarchy, pools, template fields | Tasks 3, 4, 7 |
-| §5.4 variation rules 1–4 (recent repeats, slots, wording, scene) | Tasks 8, 10 |
+| §5.4 variation rules 1–4 (recent repeats, slots, wording, scene) | Tasks 8, 10 — rule 1's "distractors likewise" is deferred: distractors don't consult history yet |
 | §5.4 rules 5–6 (mechanic rotation, interleaving) and 7 (difficulty ramp) | Tasks 14, 13 |
 | §5.5 mastery by form and bridging | Tasks 12, 13, 14 |
 | §5.6 levels field | Task 3 (`level`) |
@@ -5239,7 +5251,12 @@ The task text above is kept as written; where execution differed, the change is 
 - `ContentPack` fields are `ReadonlyMap`s (buckets are `readonly Template[]`), so no consumer can reorder shared state; `PackGoal` names the goal-with-topic type.
 - Schema errors also name the item (`(in templates "letters.tap")`), not just its index in the flattened pack; a JSON syntax error names its file; template dotfiles are skipped (as Vite's glob does); a template file that isn't an array is rejected. 8 tests instead of 3.
 
+**Task 5 — round types and pool queries**
+- One matcher applies every query filter to either pool, through `categoryOf` / `tagOf`, instead of silently ignoring filters that don't fit (a glyph `category`, an object `glyph` filter); M1 output is unchanged. `tagOf` is typed per tag key. `GeneratorHistory` is read-only and `EMPTY_HISTORY` frozen. Doc comments state the real contracts of `correctSlot`, `itemIds`, `Level`, `RoundItem.id` and give-count. 9 tests instead of 7, including AND semantics, cross-pool filters and pack order.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
+- Task 6: a query naming an unknown object or glyph id is an error (one more test).
+- Task 10: the property test also checks that item ids are unique within every payload.
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; two more tests.
 - Task 12: `Profile.level` is typed `LevelId`.
@@ -5248,3 +5265,5 @@ The task text above is kept as written; where execution differed, the change is 
 **Notes for Plan 1B** (surfaced by Plan 1A reviews)
 - Keep `node:` modules out of the app bundle: give app code a browser tsconfig without `node` types (or a lint rule); only `readPackFromDisk.ts` and `scripts/` may use Node APIs.
 - Build the browser pack from an eager `import.meta.glob('/content/templates/*.json')` and take `Object.values`: Vite sorts the keys in the same code-unit order as `readRawPack`, so template order — and therefore seeded picks — match Node.
+- `give` payloads with `count` (give-count) are interchangeable copies: accept **any** `count` of them; `correctIds` is only one valid choice, for the hint and the demonstration.
+- A `RoundItem.asset` starting with `glyph:` is drawn as text (the rest of the string is the character, e.g. `glyph:10`); every other asset is a vector path.
