@@ -1,3 +1,4 @@
+// src/engine/generator/types.ts
 import type { MechanicId } from '../content/schema';
 
 /** One thing the child can see and touch in a round. */

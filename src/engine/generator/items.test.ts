@@ -1,3 +1,4 @@
+// src/engine/generator/items.test.ts
 import { describe, it, expect } from 'vitest';
 import { loadPack } from '../content/load';
 import { queryItems, toRoundItem, categoryOf, tagOf, pluralOf } from './items';

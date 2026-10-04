@@ -1,3 +1,4 @@
+// src/engine/generator/items.ts
 import type { ContentPack } from '../content/load';
 import type { Glyph, ObjectItem, ObjectTags, Query } from '../content/schema';
 import type { RoundItem } from './types';
