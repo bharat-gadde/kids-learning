@@ -5255,10 +5255,9 @@ The task text above is kept as written; where execution differed, the change is 
 - One matcher applies every query filter to either pool, through `categoryOf` / `tagOf`, instead of silently ignoring filters that don't fit (a glyph `category`, an object `glyph` filter); M1 output is unchanged. `tagOf` is typed per tag key. `GeneratorHistory` is read-only and `EMPTY_HISTORY` frozen. Doc comments state the real contracts of `correctSlot`, `itemIds`, `Level`, `RoundItem.id` and give-count. 9 tests instead of 7, including AND semantics, cross-pool filters and pack order.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
-- Task 6: a query naming an unknown object or glyph id is an error (one more test).
-- Task 10: the property test also checks that item ids are unique within every payload.
+- Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
-- Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; two more tests.
+- Task 10: the property test also checks that item ids are unique within every payload.
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 
