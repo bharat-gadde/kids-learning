@@ -11,35 +11,34 @@ export type Candidate =
 export const objectCandidate = (item: ObjectItem): Candidate => ({ kind: 'object', id: item.id, item });
 export const glyphCandidate = (item: Glyph): Candidate => ({ kind: 'glyph', id: item.id, item });
 
-function matchesObject(o: ObjectItem, q: Query): boolean {
-  if (q.ids && !q.ids.includes(o.id)) return false;
-  if (q.category && !q.category.includes(o.category)) return false;
+/** Every filter must hold, for either pool: a glyph has no tags, and an object never passes a glyph filter. */
+function matches(c: Candidate, q: Query): boolean {
+  if (q.ids && !q.ids.includes(c.id)) return false;
+  if (q.category && !q.category.includes(categoryOf(c))) return false;
   if (q.tags) {
     for (const [key, value] of Object.entries(q.tags)) {
-      if (value !== undefined && o.tags[key as keyof ObjectTags] !== value) return false;
+      if (value !== undefined && tagOf(c, key as keyof ObjectTags) !== value) return false;
     }
   }
   if (q.hasTags) {
-    for (const key of q.hasTags) if (o.tags[key] === undefined) return false;
+    for (const key of q.hasTags) if (tagOf(c, key) === undefined) return false;
   }
-  return true;
-}
-
-function matchesGlyph(g: Glyph, q: Query): boolean {
-  if (q.ids && !q.ids.includes(g.id)) return false;
   const f = q.glyph;
-  if (!f) return true;
-  if (f.kind && g.kind !== f.kind) return false;
-  if (f.case && g.case !== f.case) return false;
-  if (f.min !== undefined && (g.value === undefined || g.value < f.min)) return false;
-  if (f.max !== undefined && (g.value === undefined || g.value > f.max)) return false;
+  if (f) {
+    if (c.kind !== 'glyph') return false;
+    const g = c.item;
+    if (f.kind && g.kind !== f.kind) return false;
+    if (f.case && g.case !== f.case) return false;
+    if (f.min !== undefined && (g.value === undefined || g.value < f.min)) return false;
+    if (f.max !== undefined && (g.value === undefined || g.value > f.max)) return false;
+  }
   return true;
 }
 
 /** All pool entries matching a template query, in pack order (deterministic). */
 export function queryItems(pack: ContentPack, q: Query): Candidate[] {
-  if (q.pool === 'objects') return [...pack.objects.values()].filter((o) => matchesObject(o, q)).map((o) => objectCandidate(o));
-  return [...pack.glyphs.values()].filter((g) => matchesGlyph(g, q)).map((g) => glyphCandidate(g));
+  const pool = q.pool === 'objects' ? [...pack.objects.values()].map(objectCandidate) : [...pack.glyphs.values()].map(glyphCandidate);
+  return pool.filter((c) => matches(c, q));
 }
 
 export function toRoundItem(c: Candidate): RoundItem {
@@ -52,7 +51,7 @@ export function categoryOf(c: Candidate): string {
   return c.item.case ? `glyph-${c.item.kind}-${c.item.case}` : `glyph-${c.item.kind}`;
 }
 
-export function tagOf(c: Candidate, tag: keyof ObjectTags): unknown {
+export function tagOf<K extends keyof ObjectTags>(c: Candidate, tag: K): ObjectTags[K] {
   return c.kind === 'object' ? c.item.tags[tag] : undefined;
 }
 

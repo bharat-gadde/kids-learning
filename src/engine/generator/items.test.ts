@@ -29,15 +29,31 @@ describe('queryItems', () => {
     expect(queryItems(pack, { pool: 'objects', hasTags: ['rhymeGroup'] }).map((c) => c.item.id)).toEqual(['cat']);
   });
 
+  it('requires every filter, and every key within tags, to match', () => {
+    // counting.give relies on this: { countable: true, healthy: true } must not admit countable junk or animals
+    expect(queryItems(pack, { pool: 'objects', tags: { sizePair: true, countable: true } }).map((c) => c.id)).toEqual(['apple']);
+    expect(queryItems(pack, { pool: 'objects', category: ['vegetable', 'animal'], tags: { sizePair: true } }).map((c) => c.id)).toEqual(['carrot']);
+    expect(queryItems(pack, { pool: 'objects', category: ['fruit', 'thing'], hasTags: ['cvc'] }).map((c) => c.id)).toEqual(['bus']);
+  });
+
+  it('applies every filter to either pool instead of ignoring the ones that do not fit', () => {
+    expect(queryItems(pack, { pool: 'glyphs', category: ['glyph-letter-upper'] }).map((c) => c.id)).toEqual(['A']);
+    expect(queryItems(pack, { pool: 'glyphs', hasTags: ['rhymeGroup'] })).toEqual([]);
+    expect(queryItems(pack, { pool: 'objects', glyph: { kind: 'letter' } })).toEqual([]);
+  });
+
   it('filters glyphs by kind, case and value range', () => {
     expect(queryItems(pack, { pool: 'glyphs', glyph: { kind: 'letter', case: 'lower' } }).map((c) => c.item.id)).toEqual(['a']);
     expect(queryItems(pack, { pool: 'glyphs', glyph: { kind: 'number', min: 1, max: 5 } }).map((c) => c.item.id)).toEqual(['n3']);
+    expect(queryItems(pack, { pool: 'glyphs', glyph: { min: 0 } }).map((c) => c.item.id)).toEqual(['n3']); // letters have no value
   });
 
   it('filters by explicit ids and exposes the id at the top level', () => {
     const found = queryItems(pack, { pool: 'objects', ids: ['bus'] });
     expect(found.map((c) => c.item.id)).toEqual(['bus']);
     expect(found[0]?.id).toBe('bus');
+    // pack order, not ids order: stored seeds replay the same rounds only if the pool order is stable
+    expect(queryItems(pack, { pool: 'objects', ids: ['cat', 'apple'] }).map((c) => c.id)).toEqual(['apple', 'cat']);
   });
 });
 
@@ -54,6 +70,7 @@ describe('conversion helpers', () => {
     const [A] = queryItems(pack, { pool: 'glyphs', ids: ['A'] });
     expect(categoryOf(cat!)).toBe('animal');
     expect(categoryOf(A!)).toBe('glyph-letter-upper');
+    expect(categoryOf(queryItems(pack, { pool: 'glyphs', ids: ['n3'] })[0]!)).toBe('glyph-number');
     expect(tagOf(cat!, 'rhymeGroup')).toBe('at');
     expect(tagOf(A!, 'rhymeGroup')).toBeUndefined();
   });
