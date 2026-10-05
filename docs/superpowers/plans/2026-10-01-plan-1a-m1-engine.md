@@ -3635,6 +3635,27 @@ describe('pickTemplate', () => {
   });
 });
 
+describe('pickTemplate after a bridge', () => {
+  it('brings the missed form back next (spec §5.5): rule 5 does it while the topic has two templates', () => {
+    let pairs = 0;
+    for (const [topicId, templates] of pack.templatesByTopic) {
+      for (const missed of templates) for (const known of templates) {
+        if (missed === known || missed.goalId !== known.goalId) continue;
+        pairs++;
+        const form = (x: typeof known) => `${x.mechanic}:${x.itemClass}`;
+        const attemptsByGoal = { [known.goalId]: [
+          attempt(known.goalId, topicId, form(known), 'correct', known.id),
+          attempt(known.goalId, topicId, form(missed), 'shown', missed.id),
+          attempt(known.goalId, topicId, form(known), 'correct', known.id), // the bridge set
+        ] };
+        const history: PickerHistory = { ...EMPTY_PICKER_HISTORY, attemptsByGoal, lastMechanicByTopic: { [topicId]: known.mechanic } };
+        for (let s = 0; s < 20; s++) expect(pickTemplate(pack, topicId, history, mulberry32(s))).toEqual({ template: missed, bridgeFrom: null });
+      }
+    }
+    expect(pairs).toBeGreaterThan(0); // big/small tap and sort, counting match and give, each way round
+  });
+});
+
 describe('suggestTopic', () => {
   it('never suggests the topic just played', () => {
     for (let s = 0; s < 30; s++) expect(suggestTopic(pack, { ...EMPTY_PICKER_HISTORY, lastTopicId: 'feelings' }, mulberry32(s))).not.toBe('feelings');
@@ -3757,7 +3778,7 @@ export function suggestTopic(pack: ContentPack, history: PickerHistory, rng: Rng
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/progress/picker.test.ts`
-Expected: PASS (7 tests).
+Expected: PASS (8 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -5382,7 +5403,7 @@ Plan 1B (M1 playable) consumes these interfaces unchanged:
 - `readPack` is Node-only; 1B adds a Vite JSON loader that produces the same `RawPack` shape and calls `loadPack`.
 - `generateSet(pack, template, { seed, level, history })` → `Round[]`; mechanics render `round.payload` by `kind` and record results with `attemptFromRound`.
 - `replayRound(pack, await attemptsForGoal(db, profileId, goalId), attempt)` regenerates a recorded round (spec §14 debug replay), or gives undefined once it no longer can — after a content update, say.
-- `pickTemplate` / `suggestTopic` with `buildPickerHistory`; `levelFor(setResultsForTemplate(...))` chooses the level; `buildGeneratorHistory` feeds the generator.
+- `pickTemplate` / `suggestTopic` with `buildPickerHistory`; `levelFor(await setResultsForTemplate(db, profileId, templateId))` chooses the level; `buildGeneratorHistory` feeds the generator.
 - `AudioManager` with `ManifestClipSource(manifest, '/audio/lines')`, `new HowlerClipPlayer(Howl)` and `createWebSpeechTts()`; the 🔊 button calls `replay()`.
 - `BuddyDB` tables for routine events, check-ins, stickers, unlocks, writing samples and paper results are already declared; 1B adds their repository functions as it needs them.
 - `blockFor(new Date())` selects the Home routine set and the greeting line.
@@ -5482,6 +5503,11 @@ The task text above is kept as written; where execution differed, the change is 
 - `goalStatus` has no window parameter (`WINDOW = 12`): `attemptsPerGoal.map(goalStatus)` would have passed the index as the window. `formSummary` returns `FormSummaryRow[]` and breaks ties by code unit.
 - 8 tests instead of 6 pin every threshold at the nearest fraction a window allows, the window edge and the time order (36 of 38 mutants killed; the 2 survivors are equivalent).
 
+**Task 13 — difficulty ramp and bridging**
+- 15 tests instead of 10. Under the task's tests a mutation run left 17 of 31 mutants alive (3 more were equivalent). The new tests pin both thresholds at the nearest fractions a set of up to 10 rounds allows (6 of 7 counts toward a rise, 5 of 6 does not; 5 of 9 does not fall), a fall of one level from 3, a fresh streak after a rise and after a fall, an empty set inside a streak, sets at another level than the replay (higher and lower), time order in both functions, and that `corrected` is no success for bridging either: 28 of 31 are killed, and the 3 survivors are equivalent (`> 0.85` differs only at exactly 85%, 17 of 20; bridging's `a.form !== last.form` and `slice(0, -1)` are implied by its same-form check).
+- Docs: `levelFor` needs all of a template's set results, since the replay starts at level 1 (the latest three sets of a level-3 history give 1); a set recorded at another level than the replay has reached is skipped and breaks the streak; `preferredForm` takes one goal's attempts and bridges between sets; a `SetResult` is a finished set.
+- Bridging is between sets, where spec §5.5 says the next *round*: a set plays one template, so one form. When a goal's last set ends without a `correct` in a form that never had one, `pickTemplate` bridges its next set to the most recently successful other form, and the missed form returns the set after through rule 5. That holds while the topic has two templates with different mechanics, as both M1 shared goals do; a third template or a second form with the same mechanic needs an explicit return in `pickTemplate`, and Task 14's return test fails when that happens.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
@@ -5496,7 +5522,8 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 13: `levelFor` skips a set with no rounds played (`total === 0`): a set left before its first answer says nothing about the level (10 tests).
 - Task 15: `getSettings` merges a stored row over the defaults, so a Settings field added later has its default for profiles saved before it.
 - Task 16: `replayRound` indexes `AttemptDetails` by its named keys (no index signature).
-- Tasks 14 and 16 (after the goal merge): the picker test that favours a weaker goal uses the two feelings goals, a new test bridges between the big/small games on the real pack (7 tests), and the picker-history test expects one big/small goal.
+- Tasks 14 and 16 (after the goal merge): the picker test that favours a weaker goal uses the two feelings goals, a new test bridges between the big/small games on the real pack, and the picker-history test expects one big/small goal.
+- Task 14: a test on the real pack pins spec §5.5's return: after a bridge, the missed form is the next pick for its topic (8 tests).
 - Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
 - Task 18: `SpeakRequest.slots` is readonly, so the manager can't write into a round's slots.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
@@ -5515,8 +5542,10 @@ The task text above is kept as written; where execution differed, the change is 
 - Draw scene-then-choose vignettes full-frame: the set's background can contradict them (thunder over the playground).
 - Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
 - In M1 no goal can be mastered: a goal has at most 2 forms and mastery needs 3 (parent decision). Show the forms tried beside the status, so "shaky" reads as learning in 1 of 3 game types rather than as failing.
-- A round is `correct` only if the right answer came before any hint pointed at it. After the first-miss hint or an inactivity wiggle it is `corrected`, and after a second miss it is `shown` (types.ts `Outcome`). `SetResult.correct` counts the set's `correct` rounds, and `total` the rounds played.
+- A round is `correct` only if the right answer came before any hint pointed at it. After the first-miss hint or an inactivity wiggle it is `corrected`, and after a second miss it is `shown` (types.ts `Outcome`). `SetResult.correct` counts the set's `correct` rounds, and `total` the rounds played. Record a SetResult only when a set's last round ends: a set left early (the Home button, or Buddy having to go) keeps its attempts and stickers but records no SetResult. `levelFor` judges each set by its own percentage, so two sets left after one right answer each would raise the level, and one left after a single hinted round would lower it. A set cut to 5 rounds once the session passes 10 minutes (§4.4) is finished when its 5th round ends.
 - Record the option the child picked wrongly as a named `AttemptDetails` field from the first mechanic on, so the parent corner's named confusions (§5.5, §8: b/d, 6/9) have history when they land.
+- Difficulty ramp (spec §5.4 rule 7): a question for the parent before playtests. No M1 template has more than 6 rounds, though §4.4 says 5–8 for tap and drag (good-habits.order has 2; the sorts and scenes 3; the matches, tap-all and plate 4), and with only `correct` counting a rise needs two perfect sets running. On the 2-round sequence game one hinted round at level 2 or 3 drops a level, and a sort, match or tap-all round is `corrected` after one slip. Simulated with the real `levelFor` (rounds independent): on a 6-round game a child right first time 9 in 10 reaches level 2 after a median of 4 sets, and at 4 in 5 after 13. Options: keep it (it errs toward the easier level); lengthen tap and drag sets to 5–8 rounds (content only, but longer sets, and the scene and sequence pools would repeat within a set); or judge a rise on the two sets' rounds together. In playtests, watch how many sets a template takes to rise.
+- Validate a restored backup's records before writing them (§10): the engine trusts Attempt and SetResult fields, so `levelFor` would count a 7-of-6 set toward a rise.
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
