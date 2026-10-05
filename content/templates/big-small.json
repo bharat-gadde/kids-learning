@@ -3,7 +3,7 @@
     "query": { "pool": "objects", "tags": { "sizePair": true } }, "rule": { "kind": "size", "target": "larger" }, "rounds": 6, "examFormat": "dps-numeracy-3",
     "difficulty": [{ "options": 2, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 4, "distractorSimilarity": "high" }],
     "flavour": { "scenes": ["garden", "playground", "farm"], "promptLineId": "prompt.tap_big" }, "level": "lkg" },
-  { "id": "big-small.sort", "topicId": "big-small", "goalId": "big-small.sort", "mechanic": "sort-into-bins", "itemClass": "objects",
+  { "id": "big-small.sort", "topicId": "big-small", "goalId": "big-small.identify", "mechanic": "sort-into-bins", "itemClass": "objects",
     "query": { "pool": "objects", "tags": { "sizePair": true } }, "rule": { "kind": "size", "target": "larger" }, "rounds": 3,
     "difficulty": [{ "options": 4, "distractorSimilarity": "low" }, { "options": 6, "distractorSimilarity": "medium" }, { "options": 8, "distractorSimilarity": "high" }],
     "bins": [{ "id": "big", "label": "big basket", "lineId": "bin.big", "asset": "bins/basket-big.svg", "match": "large" },

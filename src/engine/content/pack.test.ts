@@ -15,4 +15,11 @@ describe('the M1 content pack', () => {
     ]);
     expect(pack.templates.size).toBe(15);
   });
+
+  it('gives games that test the same skill one goal, so Buddy can bridge between their forms (spec §5.5)', () => {
+    const pack = readPack();
+    for (const [a, b] of [['big-small.tap', 'big-small.sort'], ['counting.match', 'counting.give']] as const) {
+      expect(pack.templates.get(a)!.goalId).toBe(pack.templates.get(b)!.goalId);
+    }
+  });
 });
