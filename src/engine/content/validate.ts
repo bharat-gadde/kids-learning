@@ -1,6 +1,6 @@
 // src/engine/content/validate.ts
 import type { ContentPack } from './load';
-import type { MechanicId, RuleKind, SubjectId, Template } from './schema';
+import type { Difficulty, MechanicId, RuleKind, SubjectId, Template } from './schema';
 import { queryItems, tagOf, categoryOf } from '../generator/items';
 
 export interface Issue {
@@ -46,6 +46,23 @@ export const DEFAULT_MIN_TEMPLATES: Record<SubjectId, number> = {
   literacy: 2, phonics: 2, numeracy: 2, awareness: 4, wellness: 4,
 };
 
+/** The prompt slots the generator fills for a template (each builder's `slots` in generator/rules.ts); {name} is the UI's. */
+export function slotsFilled(t: Template): ReadonlySet<string> {
+  switch (t.rule.kind) {
+    case 'give-count': return new Set(['n', 'targets']);
+    case 'count': return new Set(t.mechanic === 'drag-to-match' ? [] : ['n', 'target']);
+    case 'pair': case 'sequence': case 'scenario': return new Set();
+    default: return new Set(t.mechanic === 'sort-into-bins' ? [] : ['target']); // named, size, tag, category
+  }
+}
+
+/** How many matching and other items one level of a tag or category rule shows (buildMatching in generator/rules.ts). */
+function matchingShown(mechanic: MechanicId, d: Difficulty): [yes: number, no: number] {
+  if (mechanic === 'sort-into-bins') return [Math.ceil(d.options / 2), Math.floor(d.options / 2)];
+  const yes = mechanic === 'tap-the-one' ? 1 : Math.min(d.correctCount ?? 1, d.options - 1);
+  return [yes, d.options - yes];
+}
+
 type Report = (where: string, message: string) => void;
 
 export function validatePack(
@@ -76,6 +93,7 @@ export function validatePack(
       if (c.reactionLineId && !pack.lines.has(c.reactionLineId)) err(where, `missing line ${c.reactionLineId}`);
     }
     if (!s.choices.some((c) => c.correct)) err(where, 'no correct choice');
+    if (new Set(s.choices.map((c) => c.objectId)).size !== s.choices.length) err(where, 'choices repeat an object');
   }
 
   for (const s of pack.sequences.values()) {
@@ -100,13 +118,26 @@ export function validatePack(
 function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Report): void {
   const where = `template ${t.id}`;
   const topic = pack.topics.get(t.topicId);
-  if (!topic) {
-    err(where, `unknown topic ${t.topicId}`);
-    return;
-  }
-  if (!topic.goals.some((g) => g.id === t.goalId)) err(where, `goal ${t.goalId} is not in topic ${t.topicId}`);
+  if (!topic) err(where, `unknown topic ${t.topicId}`);
+  else if (!topic.goals.some((g) => g.id === t.goalId)) err(where, `goal ${t.goalId} is not in topic ${t.topicId}`);
   if (!pack.lines.has(t.flavour.promptLineId)) err(where, `missing prompt line ${t.flavour.promptLineId}`);
   for (const s of t.flavour.scenes) if (!pack.scenes.has(s)) err(where, `missing scene ${s}`);
+  // pickScene avoids last set's scene, so ["garden", "garden"] leaves nothing to pick after a garden set
+  if (new Set(t.flavour.scenes).size !== t.flavour.scenes.length) err(where, 'scenes repeat a scene');
+
+  // a slot the rule never fills stays raw in the caption ("Give Buddy {n} …") and is skipped when spoken
+  const filled = slotsFilled(t);
+  const promptLineIds = t.rule.kind === 'sequence' // a sequence carries its own prompt line
+    ? [...pack.sequences.values()].filter((s) => s.topicId === t.topicId).map((s) => s.promptLineId)
+    : [t.flavour.promptLineId];
+  for (const id of new Set(promptLineIds)) {
+    const used = new Set(pack.lines.get(id)?.variants.flatMap((v) => [...v.matchAll(/\{(\w+)\}/g)].map((m) => m[1] as string)));
+    for (const slot of used) {
+      if (KNOWN_SLOTS.has(slot) && slot !== 'name' && !filled.has(slot)) {
+        err(where, `prompt line ${id} uses {${slot}}, which ${t.mechanic} with a ${t.rule.kind} rule never fills`);
+      }
+    }
+  }
 
   const allowed = RULES_FOR_MECHANIC[t.mechanic];
   if (!allowed.includes(t.rule.kind)) {
@@ -116,8 +147,15 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
     if (!t.bins) err(where, `${t.mechanic} needs bins`);
     else for (const b of t.bins) if (!pack.lines.has(b.lineId)) err(where, `bin ${b.id} missing line ${b.lineId}`);
   }
+  if (t.bins && new Set(t.bins.map((b) => b.id)).size !== t.bins.length) err(where, 'bins repeat an id');
 
   const maxOptions = Math.max(...t.difficulty.map((d) => d.options));
+  const maxLevel = `level ${t.difficulty.map((d) => d.options).lastIndexOf(maxOptions) + 1}`;
+  // buildMatching shows matchingShown() items at each level, and silently shows fewer when the query runs short
+  const levelsFit = (yes: number, no: number, what: string) => t.difficulty.forEach((d, i) => {
+    const [needYes, needNo] = matchingShown(t.mechanic, d);
+    if (yes < needYes || no < needNo) err(where, `level ${i + 1} needs ${needYes} matching (${what}) and ${needNo} other items; the query has ${yes} and ${no}`);
+  });
   const needsQuery = t.rule.kind !== 'sequence' && t.rule.kind !== 'scenario';
   if (needsQuery && !t.query) {
     err(where, `rule ${t.rule.kind} needs a query`);
@@ -130,13 +168,24 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
   }
 
   switch (t.rule.kind) {
-    case 'named':
-      if (cands.length < maxOptions) err(where, `query yields ${cands.length} items; level 3 needs ${maxOptions}`);
+    case 'named': {
+      if (cands.length < maxOptions) err(where, `query yields ${cands.length} items; ${maxLevel} needs ${maxOptions}`);
+      // an answer is never shown beside an item spoken the same, so its line-mates ("B" for "b") cannot fill options
+      const fit = cands.length - Math.max(0, ...cands.map((c) => cands.filter((o) => o.item.lineId === c.item.lineId).length)) + 1;
+      if (cands.length >= maxOptions && fit < maxOptions) {
+        err(where, `an answer is never shown beside an item spoken the same (like "B" and "b"), so only ${fit} options fit; ${maxLevel} needs ${maxOptions}`);
+      }
       break;
+    }
     case 'size': {
       const ok = cands.filter((c) => tagOf(c, 'sizePair') === true);
       if (ok.length < 1) err(where, 'size rule needs items tagged sizePair');
       else if (ok.length < cands.length) warn(where, `${cands.length - ok.length} queried items lack sizePair and will be ignored`);
+      // sort-into-bins shows a small and a large copy of ⌈options / 2⌉ objects
+      if (t.mechanic === 'sort-into-bins' && ok.length > 0) t.difficulty.forEach((d, i) => {
+        const need = Math.ceil(d.options / 2);
+        if (ok.length < need) err(where, `level ${i + 1} sorts ${need} sizePair objects (a big and a small copy of each); the query has ${ok.length}`);
+      });
       if (t.bins) {
         const matches = new Set(t.bins.map((b) => b.match));
         if (!matches.has('large') || !matches.has('small')) err(where, 'size bins need match values "large" and "small"');
@@ -148,12 +197,31 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
       const yes = cands.filter((c) => tagOf(c, rule.tag) === rule.value).length;
       const no = cands.length - yes;
       if (yes < 2 || no < 2) err(where, `tag rule needs ≥2 matching and ≥2 non-matching items (has ${yes}/${no})`);
-      if (t.bins) for (const b of t.bins) if (b.match === undefined) err(where, `bin ${b.id} needs a match value`);
+      else levelsFit(yes, no, `${rule.tag} = ${String(rule.value)}`);
+      if (t.mechanic === 'sort-into-bins' && t.bins) {
+        const bins = t.bins;
+        for (const b of bins) if (b.match === undefined) err(where, `bin ${b.id} needs a match value`);
+        if (!bins.some((b) => b.match === rule.value)) err(where, `no bin has match ${JSON.stringify(rule.value)}, so the matching items have no bin`);
+        // an other item whose value no bin names goes to the first bin not matching rule.value: right only if that bin is the one catch-all
+        const unbinned = cands.filter((c) => tagOf(c, rule.tag) !== rule.value && !bins.some((b) => b.match === tagOf(c, rule.tag)));
+        if (unbinned.length > 0 && bins.filter((b) => b.match !== rule.value).length !== 1) {
+          const values = [...new Set(unbinned.map((c) => String(tagOf(c, rule.tag) ?? '(unset)')))];
+          err(where, `items with ${rule.tag} ${values.join(' / ')} have no bin: add bins for them, or keep exactly one bin besides ${JSON.stringify(rule.value)}`);
+        }
+      }
       break;
     }
     case 'category': {
-      for (const v of t.rule.values) if (!cands.some((c) => categoryOf(c) === v)) err(where, `no queried items in category ${v}`);
-      if (t.bins) for (const b of t.bins) if (b.match === undefined) err(where, `bin ${b.id} needs a match value`);
+      const rule = t.rule;
+      for (const v of rule.values) if (!cands.some((c) => categoryOf(c) === v)) err(where, `no queried items in category ${v}`);
+      const yes = cands.filter((c) => categoryOf(c) === rule.values[0]).length;
+      if (yes > 0) levelsFit(yes, cands.length - yes, rule.values[0] as string);
+      if (t.mechanic === 'sort-into-bins' && t.bins) {
+        for (const b of t.bins) if (b.match === undefined) err(where, `bin ${b.id} needs a match value`);
+        const matches = new Set(t.bins.map((b) => b.match));
+        const unbinned = [...new Set(cands.map(categoryOf))].filter((c) => !matches.has(c));
+        if (unbinned.length > 0) err(where, `no bin matches queried category ${unbinned.join(', ')}`);
+      }
       break;
     }
     case 'count':
@@ -161,6 +229,10 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
       if (!cands.some((c) => tagOf(c, 'countable') === true)) err(where, 'count rules need countable objects');
       t.difficulty.forEach((d, i) => {
         if (!d.range) err(where, `difficulty level ${i + 1} needs a range for ${t.rule.kind}`);
+        else if (t.rule.kind === 'give-count' && d.range[0] < 1) err(where, `difficulty level ${i + 1}: a give-count range starts at 1 (Buddy cannot be given 0)`);
+        else if (t.mechanic === 'drag-to-match' && d.range[1] - d.range[0] + 1 < d.options) {
+          err(where, `difficulty level ${i + 1} matches ${d.options} groups, but its range has ${d.range[1] - d.range[0] + 1} numbers`);
+        }
       });
       if (t.rule.kind === 'count') {
         // numerals are drawn for every number in a level's range and for nearby distractors (0–10)
@@ -180,10 +252,12 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
           if (typeof g === 'string') groups.set(g, (groups.get(g) ?? 0) + 1);
         }
         const usable = [...groups.values()].filter((n) => n >= 2).length;
-        if (usable < maxOptions) err(where, `rhymeGroup pairs: ${usable} usable groups, level 3 needs ${maxOptions}`);
+        if (usable < maxOptions) err(where, `rhymeGroup pairs: ${usable} usable groups, ${maxLevel} needs ${maxOptions}`);
       } else {
-        const keys = new Set(cands.filter((c) => c.kind === 'glyph').map((c) => (c.kind === 'glyph' ? c.item.pairKey : '')));
-        if (keys.size < maxOptions) err(where, `caseMate pairs: ${keys.size} pair keys, level 3 needs ${maxOptions}`);
+        // buildPair pairs an upper- and a lower-case glyph sharing a pairKey; a key missing either case yields no pair
+        const upper = new Set(cands.flatMap((c) => (c.kind === 'glyph' && c.item.case === 'upper' ? [c.item.pairKey] : [])));
+        const pairs = new Set(cands.flatMap((c) => (c.kind === 'glyph' && c.item.case === 'lower' && upper.has(c.item.pairKey) ? [c.item.pairKey] : []))).size;
+        if (pairs < maxOptions) err(where, `caseMate pairs: ${pairs} letters queried in both cases, ${maxLevel} needs ${maxOptions}`);
       }
       break;
     }
