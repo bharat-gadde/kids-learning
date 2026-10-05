@@ -200,4 +200,17 @@ describe('validatePack: content that passes generates correct rounds', () => {
     }, { objects: good.objects.map((o) => ({ ...o, tags: { ...o.tags, countable: true } })), lines: [...good.lines, line('prompt.give', 'Give Buddy {n} {targets}')] });
     expect(errorsOf(giveZero)).toEqual(['difficulty level 1: a give-count range starts at 1 (Buddy cannot be given 0)']);
   });
+
+  it('warns when a level has too few counts to change between rounds', () => {
+    const give = (r1: [number, number], r2: [number, number]) => validatePack(loadPack(withTemplate({
+      mechanic: 'give-to-buddy', rule: { kind: 'give-count' }, bins: [bin('buddy')], flavour: { scenes: ['garden'], promptLineId: 'prompt.give' },
+      difficulty: [{ options: 5, distractorSimilarity: 'low', range: r1 }, { options: 5, distractorSimilarity: 'medium', range: r2 }, { options: 5, distractorSimilarity: 'high', range: [1, 3] }],
+    }, { objects: good.objects.map((o) => ({ ...o, tags: { ...o.tags, countable: true } })), lines: [...good.lines, line('prompt.give', 'Give Buddy {n} {targets}')] })))
+      .filter((i) => i.where === 'template big-small.tap').map((i) => `${i.level}: ${i.message}`);
+    expect(give([2, 2], [1, 2])).toEqual([
+      'warning: difficulty level 1: range 2–2 asks for the same count every round; widen it to 3 or more numbers',
+      'warning: difficulty level 2: range 1–2 can only alternate its two counts; widen it to 3 or more numbers',
+    ]);
+    expect(give([1, 3], [2, 4])).toEqual([]);
+  });
 });

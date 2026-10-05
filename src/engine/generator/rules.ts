@@ -216,7 +216,8 @@ const countKey = (n: number) => `n:${n}`;
 
 /**
  * `k` counts from the range. Counts change between rounds (spec §2.2), and they are asked in passes: a pass asks
- * every count in the range once, in a fresh order, and the next pass never opens with the last round's counts.
+ * every count in the range once, in a fresh order, and the next pass never opens with the last round's counts; a
+ * round that needs more counts than its pass has left (drag-to-match) tops up with the pass's earliest.
  * (Least recently used would also cover the range, but it replays a set's own order once a small range runs out: 1 3 2 1 3.)
  */
 function sampleCounts(ctx: RuleContext, numbers: readonly number[], k: number): number[] {

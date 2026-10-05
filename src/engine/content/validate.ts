@@ -233,6 +233,10 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
         else if (t.mechanic === 'drag-to-match' && d.range[1] - d.range[0] + 1 < d.options) {
           err(where, `difficulty level ${i + 1} matches ${d.options} groups, but its range has ${d.range[1] - d.range[0] + 1} numbers`);
         }
+        // one count per round, and counts change between rounds (spec §2.2): with 2 they can only alternate, which a child can learn
+        if (d.range && t.mechanic !== 'drag-to-match' && d.range[1] - d.range[0] < 2) {
+          warn(where, `difficulty level ${i + 1}: range ${d.range[0]}–${d.range[1]} ${d.range[0] === d.range[1] ? 'asks for the same count every round' : 'can only alternate its two counts'}; widen it to 3 or more numbers`);
+        }
       });
       if (t.rule.kind === 'count') {
         // numerals are drawn for every number in a level's range and for nearby distractors (0–10)
