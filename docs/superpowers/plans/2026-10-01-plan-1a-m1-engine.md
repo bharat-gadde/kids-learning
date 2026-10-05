@@ -4098,7 +4098,7 @@ import type { Attempt, AttemptDetails, Outcome } from './types';
 /** What a round records about itself in its attempt (a mechanic may add details of its own beside these). */
 function roundDetails(round: Round): AttemptDetails {
   return {
-    itemIds: round.itemIds,
+    itemIds: [...round.itemIds], // the attempt's own array: the round's is frozen
     slot: round.correctSlot,
     sceneId: round.sceneId,
     lineId: round.prompt.lineId,
@@ -5329,7 +5329,7 @@ Framework-free TypeScript under `src/engine/`; content as JSON under `content/`.
 | `npm test` | all engine tests (Vitest) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run validate` | cross-reference and rule checks on the content pack (`--strict` fails on warnings) |
-| `npm run inspect -- <templateId> [--seed N] [--level 1\|2\|3]` | print a generated set |
+| `npm run inspect -- <templateId> [--seed N] [--level 1\|2\|3]` | print the set a seed and level make with no history (a goal's first set) |
 | `npm run voice -- [--dry-run] [--prune]` | generate voice clips with Azure Speech (needs `.env`) |
 | `npm run check` | typecheck + tests + validate |
 
@@ -5438,11 +5438,17 @@ The task text above is kept as written; where execution differed, the change is 
 - 18 tests instead of 13: count-tap rank and slots, counting passes, `correctOrder` identity, the scenario slot rule, and a sweep that builds every M1 template at every level over 40 seeds, twice, and checks each payload's consistency.
 
 **Task 10 — rounds and sets**
-- Replay (spec §5.4, §14): `Round.seed` is the set's seed and `Round.index` the round's place in the set; the round still draws from `deriveSeed(seed, 'round<index>')`, so every generated set is unchanged. Before, a stored round seed replayed only first rounds (0.8% of later ones), and nothing stored the set seed. Errors, including a missing prompt line, name the template, set seed, level and round — the inspect CLI's `--seed` and the listing's `#N`. `RoundOptions` is exported.
+- Replay (spec §5.4, §14): `Round.seed` is the set's seed and `Round.index` the round's place in the set; the round still draws from `deriveSeed(seed, 'round<index>')`, so every generated set is unchanged. Before, a stored round seed replayed only first rounds (0.8% of later ones), and nothing stored the set seed. Errors, including a missing prompt line, name the template, set seed, level and round — for a set made with no history, the inspect CLI's `--seed` and the listing's `#N`. `RoundOptions` is exported.
 - The slot-balance rule is described as what it is, a rule applied at each pick (spec §5.4 rule 2, §14, `slots.ts`): the answer only goes to a slot at most one use ahead of the least-used. Literal "always the least-used" would be easier to learn: a child following it would score 75 / 61 / 44% against 65 / 42 / 31% now (chance 50 / 33 / 25%).
 - `slots.test.ts` test titles use the same pick-time wording.
 - Rounds are deep-frozen as `generateRound` returns them: Task 16 hashes the payload into each attempt, so a renderer reordering or marking a round in place would silently make it unreplayable; now it throws. Generated output is unchanged.
 - 16 tests instead of 11. A mutation run showed the old suite passing with the within-set wording update deleted, the sequence prompt override dropped, `slotCounts` emptied or history ignored; new tests pin error context, the slot-balance rule at every pick, fresh key items before recent ones, sequence prompt lines, scene and wording avoidance over every template and round, and read-only rounds.
+
+**Task 11 — inspect CLI**
+- It lists the set made with no history (a goal's first set, and every set the tests make) and its usage line says so: a later set in the app also depends on the goal's history, which `replayRound` (Task 16) rebuilds from attempts.
+- Arguments: the template id, `--seed N` and `--level 1|2|3`, in any order. Anything else (`--level 4`, `--seed=7`, a misspelt flag) exits 2 with "Unexpected argument …" instead of listing a set nobody asked for, and an unknown template exits 2 like the validate CLI; the task text clamped the level.
+- Pairs and bins listings add a `shown:` line with the on-screen order.
+- With the Task 10 follow-ups: payload arrays, `prompt.slots` and `itemIds` are readonly in the types, matching the runtime freeze, and the freeze test checks that every object a round reaches is frozen and nothing in the pack is.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
@@ -5455,8 +5461,10 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 12: `Attempt.seed` is the set's seed; `AttemptDetails.round` records the round's place in the set (`Round.index`) and `payloadHash` a hash of what was on screen.
 - Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, or gives undefined when the result differs from what the attempt recorded (`roundDetails` builds both, including the payload hash): a content update or a set not played as generated gives no round rather than a different one. Tests replay every attempt of five sessions played with real history, and check that a changed pack — a new phrasing, object or scene, or one fewer option — never replays a different round (6 tests). Task 23's hand-off names `replayRound`.
+- Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
+- Task 23: the README's inspect row says it prints the set made with no history.
 
 **Notes for Plan 1B** (surfaced by Plan 1A reviews)
 - Keep `node:` modules out of the app bundle: give app code a browser tsconfig without `node` types (or a lint rule); only `readPackFromDisk.ts` and `scripts/` may use Node APIs.
@@ -5472,6 +5480,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
-- Rounds are frozen: copy a payload before reordering or marking it (sequence cards as they are dragged, a tapped option, placed items). `attemptFromRound` hashes the payload as generated, and a round changed in place would never replay.
+- Rounds are frozen at runtime and their payload arrays readonly in the types: copy a payload before reordering or marking it (sequence cards as they are dragged, a tapped option, placed items). `attemptFromRound` hashes the payload as generated, and a round changed in place would never replay.
+- drag-to-match: the generator shuffles the right column with no arrangement rule. At level 1 (2 pairs) it lines up straight across with the left in half the rounds, and the same arrangement runs three rounds in a third of 4-round sets. Once the layout is decided, consider applying the slot rule to arrangements (spec §2.2: a child can't win by position).
 - Take `at` from a clock that never goes back or repeats (`Math.max(Date.now(), lastAt + 1)`): mastery, bridging, the picker, `levelFor` and `replayRound` all order attempts and set results by `at`, and one backward step made every round of a goal replay differently.
 - When writing new lines, keep slots mid-sentence: a spoken question that ends in a spliced slot ("Where is the {target}?") loses its rising intonation.
