@@ -3470,7 +3470,8 @@ import type { SetResult } from './types';
 
 /**
  * Spec §5.4 rule 7. Replays a template's set results in time order:
- * two consecutive sets at ≥85% raise the level (max 3); a set at ≤50% lowers it (min 1); anything else resets the streak.
+ * two consecutive sets at ≥85% raise the level (max 3); a set at ≤50% lowers it (min 1); anything else resets the streak;
+ * a set with no rounds played is skipped.
  */
 export function levelFor(results: readonly SetResult[]): Level {
   let level: Level = 1;
@@ -5476,9 +5477,9 @@ The task text above is kept as written; where execution differed, the change is 
 - With the Task 10 follow-ups: every field of a round — its prompt, payload, items and bins, arrays included — is readonly in the types, matching the runtime freeze (an assignment such as `round.prompt.text = …` no longer compiles), and the freeze test checks that every object a round reaches is frozen and nothing in the pack is.
 
 **Task 12 — progress types and mastery**
-- A `corrected` round is not correct: §5.5 says "% correct", and its hint showed the answer (§4.4). Under the task text's half credit a child who taps every hinted answer could never be needs-practice, and a child who knows 1 answer in 5 on two-option rounds passed 80% in 44% of windows (8% now). §4.4 calls the inactivity wiggle a hint too, so an answer after it is `corrected`.
+- A `corrected` round is not correct: §5.5 says "% correct", and its hint showed the answer (§4.4). Under the task text's half credit a child who taps every hinted answer could never be needs-practice, and one who knows 1 answer in 5 on two-option rounds passed 80% in 44% of 12-attempt windows (8% now). §4.4 calls the inactivity wiggle a hint too, so an answer after it is `corrected`.
 - `Outcome`, `hints` and `SetResult.correct` / `total` say what counts; `at`, both meanings of `level`, and `WritingSample` stroke units (fractions of the writing box) are documented. `AttemptDetails` has no index signature, so a misspelt field no longer compiles.
-- `goalStatus` has no window parameter (`WINDOW = 12`): `goals.map(goalStatus)` would have passed the index as the window. `formSummary` returns `FormSummaryRow[]` and breaks ties by code unit.
+- `goalStatus` has no window parameter (`WINDOW = 12`): `attemptsPerGoal.map(goalStatus)` would have passed the index as the window. `formSummary` returns `FormSummaryRow[]` and breaks ties by code unit.
 - 8 tests instead of 6 pin every threshold at the nearest fraction a window allows, the window edge and the time order (36 of 38 mutants killed; the 2 survivors are equivalent).
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
