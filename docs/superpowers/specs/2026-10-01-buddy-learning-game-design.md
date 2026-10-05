@@ -499,7 +499,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 
 | Layer | What is verified | How |
 |---|---|---|
-| Round generator & variation rules | the correct slot never repeats twice running; no item repeats within 3 sessions for a goal; mechanic rotation on consecutive days; difficulty ramps up/down as specified; determinism from seed | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
+| Round generator & variation rules | the correct answer never sits in one slot three times running, and every slot stays within one use of the least-used; no item repeats within 3 sessions for a goal; mechanic rotation on consecutive days; difficulty ramps up/down as specified; determinism from seed | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
 | Mastery & bridging | status transitions; ≥ 3 forms required; bridging picks a known-good form after a miss on a new form | automated tests over synthetic histories |
 | Audio chain | every line id resolves; name splicing; fallback order; stale-clip detection | automated tests + content validation |
 | Content validation | every template references existing pools, assets, lines; each topic meets its variant minimum; every glyph has a reference path and zone rule; every line has a clip or TTS text | runs on every change; the build fails on errors |
