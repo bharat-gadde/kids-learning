@@ -4119,7 +4119,6 @@ describe('buildPickerHistory', () => {
     expect(Object.keys(h.attemptsByGoal).sort()).toEqual(['big-small.identify', 'feelings.name']); // both big/small games share a goal
     expect(h.attemptsByGoal['big-small.identify']).toHaveLength(tap.length + sort.length);
     expect(h.lastTopicId).toBe('big-small');
-    expect(h.lastSuggestedSubject).toBeNull();
   });
 });
 ```
@@ -4134,6 +4133,7 @@ Expected: FAIL — `Cannot find module './history'`.
 ```ts
 // src/engine/progress/history.ts
 import type { ContentPack } from '../content/load';
+import type { MechanicId } from '../content/schema';
 import { generateSet } from '../generator/round';
 import type { GeneratorHistory, Round } from '../generator/types';
 import { hashString } from '../rng';
@@ -4223,7 +4223,7 @@ export function replayRound(pack: ContentPack, goalAttempts: readonly Attempt[],
 export async function buildPickerHistory(db: BuddyDB, profileId: string, sessionIndex: number): Promise<PickerHistory> {
   const attempts = await attemptsForProfile(db, profileId);
   const lastPlayedSession: Record<string, number> = {};
-  const lastMechanicByTopic: PickerHistory['lastMechanicByTopic'] = {};
+  const lastMechanicByTopic: Record<string, MechanicId> = {};
   const attemptsByGoal: Record<string, Attempt[]> = {};
   for (const a of attempts) {
     lastPlayedSession[a.templateId] = Math.max(lastPlayedSession[a.templateId] ?? 0, a.sessionIndex);
@@ -4236,7 +4236,6 @@ export async function buildPickerHistory(db: BuddyDB, profileId: string, session
     lastMechanicByTopic,
     attemptsByGoal,
     lastTopicId: attempts[attempts.length - 1]?.topicId ?? null,
-    lastSuggestedSubject: null,
   };
 }
 ```
@@ -5508,6 +5507,14 @@ The task text above is kept as written; where execution differed, the change is 
 - Docs: `levelFor` needs all of a template's set results, since the replay starts at level 1 (the latest three sets of a level-3 history give 1); a set recorded at another level than the replay has reached is skipped and breaks the streak; `preferredForm` takes one goal's attempts and bridges between sets; a `SetResult` is a finished set.
 - Bridging is between sets, where spec §5.5 says the next *round*: a set plays one template, so one form. When a goal's last set ends without a `correct` in a form that never had one, `pickTemplate` bridges its next set to the most recently successful other form, and the missed form returns the set after through rule 5. That holds while the topic has two templates with different mechanics, as both M1 shared goals do; a third template or a second form with the same mechanic needs an explicit return in `pickTemplate`, and Task 14's return test fails when that happens.
 
+**Task 14 — template picker and topic suggestion**
+- Rule 6 (spec §5.4): Buddy's suggestion is never on the island just played while another island has a spot, nor the topic just played while another has templates: "alternates islands" is a rule, like "never the same topic twice", not the task text's ×2 weight. "Just played" is the latest attempt's topic, so the child's own taps count and nothing more is stored: `lastSuggestedSubject` is gone from `PickerHistory` (Task 16 set it to null, which left the boost dead: 11% of suggestions fell on the island just played, over 300 simulated children following Buddy). Preferring shaky goals stays a weight, by each topic's weakest goal (needs practice 3, shaky 2, new 1.5, mastered 0.25): read as a filter ("chosen from goals that are shaky", spec §4.3, now reworded to match §5.4), a child who follows Buddy played 2.6 different topics in her first 20 sets, never played 7 of the 10 in 60, and Buddy's last 30 suggestions used only 2 topics.
+- Rule 5 rotates after any earlier play of the topic, not only on consecutive days: that is what brings the missed form back the set after a bridge (§5.5). In M1 every two-game topic alternates after its first play, and the weights decide nothing until a topic has three games. In M1 a bridge picks the game rule 5 would have picked, so `bridgeFrom` (Buddy's bridging line) is its only visible effect.
+- "Not played lately" is this session and the 3 before it, the generator's window (Task 16); the task text's `>= 3` left out the third session back.
+- `PickerHistory` is read-only and `EMPTY_PICKER_HISTORY` frozen, as the generator's are; `suggestTopic` throws a named error when no topic has templates; the doc comments no longer claim rules 5–7 or "shaky goals first".
+- When two goals of a topic both wait for a bridge, the first template in pack order wins. No M1 topic can get there (a topic with two goals has one game per goal); content that makes it possible also needs the explicit return the Task 13 note describes.
+- 12 tests instead of 8. Under the task text's tests a mutation run left 23 of 32 non-equivalent mutants alive: two tests could not fail (their seeds never drew the topic or subject they excluded), and the weights, the recency window, the fallbacks and the reverse bridge were unpinned. The "favours" test reached `mastered` through feelings forms the pack doesn't have, in a history the app can't build; a four-game mini pack replaces it. The new tests read exact odds by sweeping the picker's one draw: 31 of 35 non-equivalent mutants are killed, and the 4 survivors are retunings that keep the order (new 1.5 → 1, mastered 0.25 → 1, recency +2 → +4) and the freeze.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
@@ -5524,6 +5531,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 16: `replayRound` indexes `AttemptDetails` by its named keys (no index signature).
 - Tasks 14 and 16 (after the goal merge): the picker test that favours a weaker goal uses the two feelings goals, a new test bridges between the big/small games on the real pack, and the picker-history test expects one big/small goal.
 - Task 14: a test on the real pack pins spec §5.5's return: after a bridge, the missed form is the next pick for its topic (8 tests).
+- Task 16: `PickerHistory` has no `lastSuggestedSubject` (the suggestion avoids the island of the latest attempt's topic) and is read-only, so `buildPickerHistory` builds `lastMechanicByTopic` as a `Record<string, MechanicId>` and the picker-history test drops its `lastSuggestedSubject` expectation (still 6 tests).
 - Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
 - Task 18: `SpeakRequest.slots` is readonly, so the manager can't write into a round's slots.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
@@ -5546,6 +5554,8 @@ The task text above is kept as written; where execution differed, the change is 
 - Record the option the child picked wrongly as a named `AttemptDetails` field from the first mechanic on, so the parent corner's named confusions (§5.5, §8: b/d, 6/9) have history when they land.
 - Difficulty ramp (spec §5.4 rule 7): a question for the parent before playtests. No M1 template has more than 6 rounds, though §4.4 says 5–8 for tap and drag (good-habits.order has 2; the sorts 3; the matches, tap-all and plate 4; the two scene games, which §6 lists under listen and story, have 3 too), and with only `correct` counting a rise needs two perfect sets running. On the 2-round sequence game one hinted round at level 2 or 3 drops a level, and a sort, match or tap-all round is `corrected` after one slip. Simulated with the real `levelFor` (rounds independent): on a 6-round game a child right first time 9 in 10 reaches level 2 after a median of 4 sets, and at 4 in 5 after 13. Options: keep it (it errs toward the easier level); lengthen tap and drag sets to 5–8 rounds (content only, but longer sets, and at 5 rounds the sequences and the items of healthy-food.sort, good-habits.clean and healthy-food.plate would repeat within a set at some level, on top of the repeats the pools already have); or judge a rise on the two sets' rounds together. In playtests, watch how many sets a template takes to rise.
 - Validate a restored backup's records before writing them (§10): the engine trusts Attempt and SetResult fields, so `levelFor` would count a 7-of-6 set toward a rise.
+- When `pickTemplate` returns a `bridgeFrom`, Buddy says `buddy.bridge` before the set's first prompt (spec §5.5: Buddy links the forms aloud). In M1 that line is all a child sees of bridging: rule 5 already picks the familiar game.
+- Buddy's suggestion keeps no state of its own: `suggestTopic` avoids the island and the topic of the latest attempt, so call it with a picker history built after the last set's attempts are written.
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
