@@ -82,7 +82,7 @@ Hello → Home routine (due steps) → Feelings check-in at the door
 4. **Play Map.** Five islands (§4.3), all open — no star-gating. Buddy comes along, small in a corner, pointing at a suggested spot. The child taps any spot.
 5. **A set.** The chosen topic's template picker (§5.4) selects a game the child has not seen lately and generates a fresh round. A set is 5–8 rounds for tap/drag mechanics, fewer for finger mechanics (§6). Feedback rules in §4.4.
 6. **Celebrate.** Buddy performs a dance or action; a sticker flies into the book. Every 2nd–3rd set (random) Buddy adds "Your turn!" (§4.5). Back to the Map.
-7. **Wind-down.** At T−2 min of the parent-set session length, Buddy yawns and the music softens. At T, Buddy *has to go*: in the morning "time for school" (Buddy picks up the bag and leaves through the door), in the afternoon "nap time", in the evening the bedtime routine (bath → brush → pyjamas → story → lamp off). A "Buddy is at school / asleep" screen then shows until the next session is allowed (next time-of-day block, or the parent overrides from the parent corner).
+7. **Wind-down.** At T−2 min of the parent-set session length, Buddy yawns and the music softens. At T, Buddy *has to go*: in the morning "time for school" (Buddy picks up the bag and leaves through the door), in the afternoon "nap time", in the evening the bedtime routine (bath → change into shorts → story → lamp off). A "Buddy is at school / asleep" screen then shows until the next session is allowed (next time-of-day block, or the parent overrides from the parent corner).
 
 ### 4.2 Buddy's Home
 
@@ -94,15 +94,15 @@ Home is a single room with a window (weather), a wardrobe, a bathroom door, a ki
 |---|---|---|
 | ☀️ Morning | Wake up & wash · Brush teeth · Get dressed · Meal (breakfast) · Pack the bag | Brush, Dress, plus one rotating among Wake up & wash, Meal, Pack the bag |
 | 🌤️ Afternoon | Meal (lunch) · Tidy up · (free play) | Meal, Tidy |
-| 🌙 Evening | Meal (dinner) · Bath · Brush teeth · Get dressed (pyjamas) · Story & bed | Bath, Brush, Story |
+| 🌙 Evening | Meal (dinner) · Bath · Get dressed (night shorts) · Story & bed | Bath, Story, plus Meal or Dress |
 
 **The nine hand-crafted scenes.** Each is a scripted scene using one or two mechanics, with its own art, lines and small animations. Each ends with a **transfer nudge** — Buddy asks the child about their *own* routine (Yes / Not yet), self-reported, logged for the parent, never enforced or nagged.
 
 | Scene | Block | Mechanics | What happens | Transfer nudge |
 |---|---|---|---|---|
 | Wake up & wash | ☀️ | drag, scrub | Open curtains (reveals weather); wash face and hands with soap until clean; dry with towel | "Did you wash your face today?" |
-| Brush teeth | ☀️ 🌙 | scrub | Sugar bugs on top and bottom teeth, front and back; brush until gone; rinse, spit. Night variant: sleepy Buddy, dimmer light | "Did you brush yours too?" |
-| Get dressed | ☀️ 🌙 | dress-buddy | Look out of the window (today's weather, random with seasonal weighting); choose from the wardrobe; wrong choices get a reaction (shivers, sweats, gets wet) not a block; shoes last. Night variant: pyjamas | "What did you wear today?" |
+| Brush teeth | ☀️ | scrub | Sugar bugs on top and bottom teeth, front and back; brush until gone; rinse, spit. Morning only for now (parent's choice, 2026-10-05); a night variant can be added later | "Did you brush yours too?" |
+| Get dressed | ☀️ 🌙 | dress-buddy | Look out of the window (today's weather, random with seasonal weighting); choose from the wardrobe; wrong choices get a reaction (shivers, sweats, gets wet) not a block; shoes last. Night variant: night shorts (the child wears shorts, not pyjamas) | "What did you wear today?" |
 | Meal time | ☀️ 🌤️ 🌙 | scrub, give-to-buddy | Wash hands first; build a plate from the fridge — fruits, vegetables, roti/rice, milk, eggs; sweets and chips are present and tempt; Buddy's tummy reacts; "thank you" at the end | "Did you eat a fruit today?" |
 | Pack the bag | ☀️ | give-to-buddy, sort | Lunchbox, water bottle, books, pencil box go in; toys and sweets stay out. Buddy is then ready for school (the door is still the door) | "Do you have your water bottle?" |
 | Tidy up | 🌤️ | sort-into-bins | Room is randomly messy (3–8 items): toys → box, books → shelf, clothes → basket; Buddy admires the clean room | "Can you tidy one thing in your room?" |
@@ -152,7 +152,8 @@ Five islands on one scrolling map. Each island has topic spots (a signpost with 
 
 ### 4.7 Buddy
 
-- **Personalised once, at first launch:** body colour (6 options), a name (typed by the parent or chosen from spoken suggestions; spoken by the device-TTS layer), one accessory (bow, cap, scarf, glasses). Changeable later in the wardrobe.
+- **Personalised once, at first launch:** body colour (6 options), a name (typed by the parent or chosen from spoken suggestions), one accessory (bow, cap, scarf, glasses). Changeable later in the wardrobe.
+- **Buddy's chosen name is spoken everywhere Buddy is mentioned** (parent's choice, 2026-10-05): lines carry a `{buddy}` slot that the UI fills from the profile and the device-TTS layer speaks, exactly like the child's own `{name}`. Lines never use a possessive after the slot ("the plate", not "{buddy}'s plate") and never give Buddy a gendered pronoun.
 - **10 expressions:** happy · excited · proud · surprised · thinking · sleepy · sad · scared · angry · calm. The last four are also the feelings vocabulary used in Feelings Forest and the check-in.
 - **Idle life:** blink, breathe, trunk sway, occasional sneeze or yawn, looks toward where the child last tapped.
 - **6 dances:** trunk twirl · elephant stomp · wiggle · spin · bhangra bounce · disco. Two unlocked at start (trunk twirl, elephant stomp).

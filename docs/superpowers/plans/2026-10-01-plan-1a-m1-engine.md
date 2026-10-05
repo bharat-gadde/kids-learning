@@ -2855,8 +2855,9 @@ describe('helpers', () => {
     expect(pickScene(mulberry32(1), ['a'], 'a')).toBe('a');
   });
 
-  it('renderCaption fills slots with labels and leaves {name} for the UI', () => {
-    expect(renderCaption(pack, 'Give Buddy {n} {targets}, {name}!', { n: '3', targets: 'mango' })).toBe('Give Buddy 3 mangoes, {name}!');
+  it('renderCaption fills slots with labels and leaves {name} and {buddy} for the UI', () => {
+    expect(renderCaption(pack, 'Give {buddy} {n} {targets}, {name}!', { n: '3', targets: 'mango' })).toBe('Give {buddy} 3 mangoes, {name}!');
+    expect(renderCaption(pack, 'Give {buddy} {n} {targets}', { n: '1', targets: 'mango' })).toBe('Give {buddy} 1 mango');
     expect(renderCaption(pack, 'Tap the letter {target}', { target: 'b' })).toBe('Tap the letter b');
     expect(renderCaption(pack, 'Count to {target}', { target: 'n10' })).toBe('Count to 10');
   });
@@ -2897,7 +2898,7 @@ export function pickScene(rng: Rng, scenes: readonly string[], last: string | nu
   return pick(rng, scenes.filter((s) => s !== last));
 }
 
-/** Resolve a slot value to the text shown in the caption. {name} is left for the UI (it is the child's name). */
+/** Resolve a slot value to the text shown in the caption. */
 export function slotLabel(pack: ContentPack, slot: string, value: string): string {
   const object = pack.objects.get(value);
   if (object) return slot === 'targets' ? pluralOf(object) : object.name;
@@ -2906,11 +2907,16 @@ export function slotLabel(pack: ContentPack, slot: string, value: string): strin
   return value;
 }
 
+/**
+ * Fill a caption's slots. {name} and {buddy} are left for the UI (the child's name and the name the child gave
+ * Buddy — the validator's UI_SLOTS). "{n} {targets}" uses the singular when n is 1: "Give Buddy 1 apple".
+ */
 export function renderCaption(pack: ContentPack, text: string, slots: Readonly<Record<string, string>>): string {
   return text.replace(/\{(\w+)\}/g, (whole, slot: string) => {
-    if (slot === 'name') return whole;
+    if (slot === 'name' || slot === 'buddy') return whole;
     const value = slots[slot];
-    return value === undefined ? whole : slotLabel(pack, slot, value);
+    if (value === undefined) return whole;
+    return slotLabel(pack, slot === 'targets' && slots.n === '1' ? 'target' : slot, value);
   });
 }
 
@@ -4257,7 +4263,10 @@ class FakeHeart implements HeartSource {
   urlFor(id: string) { return `heart://${id}`; }
 }
 
-const everyClip = new FakeClips(new Set(['prompt.tap_big.v0.s0', 'obj.elephant.v0.s0', 'glyph.num.3.v0.s0', 'obj.mango.plural', 'fb.correct.v1.s0', 'prompt.give_n.v1.s0']));
+const everyClip = new FakeClips(new Set([
+  'prompt.tap_big.v0.s0', 'obj.elephant.v0.s0', 'glyph.num.1.v0.s0', 'glyph.num.3.v0.s0', 'obj.mango.v0.s0', 'obj.mango.plural',
+  'fb.correct.v1.s0', 'prompt.give_n.v1.s0',
+]));
 
 describe('AudioManager.speak', () => {
   it('plays text segments and object slots as clips, in order', async () => {
@@ -4265,7 +4274,7 @@ describe('AudioManager.speak', () => {
     const tts = new FakeTts();
     const am = new AudioManager({ pack, clips: everyClip, player, tts });
     const parts = await am.speak({ lineId: 'prompt.tap_big', variant: 0, slots: { target: 'elephant' } });
-    expect(parts).toEqual([{ source: 'clip', text: 'Tap the BIG' }, { source: 'clip', text: 'elephant' }]);
+    expect(parts).toEqual([{ source: 'clip', text: 'Tap the biggest' }, { source: 'clip', text: 'elephant' }]);
     expect(player.played).toEqual(['/audio/lines/prompt.tap_big.v0.s0.mp3', '/audio/lines/obj.elephant.v0.s0.mp3']);
     expect(tts.spoken).toEqual([]);
   });
@@ -4287,15 +4296,22 @@ describe('AudioManager.speak', () => {
     expect(player.played).toEqual(['heart://fb.correct.v1.s0']);
   });
 
-  it('speaks numbers through their glyph clip and plurals through the plural clip', async () => {
+  it("speaks numbers and plurals through their clips, and Buddy's chosen name with TTS", async () => {
     const player = new FakePlayer();
     const am = new AudioManager({ pack, clips: everyClip, player, tts: new FakeTts() });
-    const parts = await am.speak({ lineId: 'prompt.give_n', variant: 1, slots: { n: '3', targets: 'mango' } });
+    const parts = await am.speak({ lineId: 'prompt.give_n', variant: 1, slots: { n: '3', targets: 'mango', buddy: 'Gajju' } });
     expect(parts).toEqual([
-      { source: 'clip', text: 'Can you give Buddy' },
+      { source: 'clip', text: 'Can you give' },
+      { source: 'tts', text: 'Gajju' },
       { source: 'clip', text: 'three' },
       { source: 'clip', text: 'mangoes' },
     ]);
+  });
+
+  it('says the singular after a count of one', async () => {
+    const am = new AudioManager({ pack, clips: everyClip, player: new FakePlayer(), tts: new FakeTts() });
+    const parts = await am.speak({ lineId: 'prompt.give_n', variant: 1, slots: { n: '1', targets: 'mango', buddy: 'Gajju' } });
+    expect(parts.slice(2)).toEqual([{ source: 'clip', text: 'one' }, { source: 'clip', text: 'mango' }]);
   });
 
   it("speaks the child's name with TTS", async () => {
@@ -4435,7 +4451,7 @@ export class AudioManager {
         parts.push(await this.clipOrTts(seg.clipId, seg.text));
       } else {
         const value = req.slots?.[seg.name];
-        if (value !== undefined) parts.push(await this.speakSlot(seg.name, value));
+        if (value !== undefined) parts.push(await this.speakSlot(seg.name, value, req.slots?.n));
       }
     }
     return parts;
@@ -4452,11 +4468,12 @@ export class AudioManager {
     this.deps.tts.cancel();
   }
 
-  private async speakSlot(name: string, value: string): Promise<SpokenPart> {
+  /** {targets} is spoken in the plural except after an {n} of 1 ("one apple"); {name} and {buddy} go to TTS. */
+  private async speakSlot(name: string, value: string, n?: string): Promise<SpokenPart> {
     const { pack } = this.deps;
     const object = pack.objects.get(value);
     if (object) {
-      if (name === 'targets') return this.clipOrTts(pluralClipId(object.lineId), pluralOf(object));
+      if (name === 'targets' && n !== '1') return this.clipOrTts(pluralClipId(object.lineId), pluralOf(object));
       return this.clipOrTts(clipIdFor(object.lineId, 0, 0), pack.lines.get(object.lineId)?.variants[0] ?? object.name);
     }
     const glyph =
@@ -4490,7 +4507,7 @@ export class AudioManager {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/audio/manager.test.ts`
-Expected: PASS (8 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -5260,11 +5277,22 @@ The task text above is kept as written; where execution differed, the change is 
 - "Passes ⇒ generates correctly" now holds for every counter-example found in review. Sort bins are checked against the items sorted into them (category bins cover every queried category; tag bins have a bin for the matching value and either a bin per other value or one catch-all). caseMate counts letters present in both cases. Every level must have enough matching and other items (`matchingShown` mirrors `buildMatching`), size sorts enough sizePair objects, named options allow for same-line twins, count drag-to-match ranges cover the groups, and give-count ranges start at 1. A prompt may only use slots its rule fills (`slotsFilled`). Repeated scenario choices, bins and scenes are errors; an unknown topic no longer hides the template's other errors; messages name the real top level. Bins outside sort-into-bins no longer need a `match` (the generator never reads it). 18 tests instead of 11.
 - Known, deliberately unchecked edge cases (no M1 content hits them): size + tap-the-one caps options above 4 at 4 copies; count + tap-the-one with a narrow range above 10 gets fewer distractors; a sequence level can fall back to a longer sequence; a tag rule with `value: false`, untagged items and a catch-all bin sorts the untagged items into the "true" bin.
 
+**Task 7 — M1 content** (reviewed for what a 4–5-year-old sees and hears; routine and naming decisions by the parent, 2026-10-05)
+- Prompts: "biggest" instead of "BIG" (with 3–4 sizes on screen "big" has several right answers; sentence case only); "capital letter" for the capital/small topic; a generic bridging line; the size-sort prompt names the two sizes on screen; give-count's third wording avoids "them" after 1.
+- Buddy's chosen name: every line that names Buddy uses a UI-filled `{buddy}` slot, with no possessive after it and no gendered pronoun. Kindness scenarios speak to "you" and "your friend" (no "Mia"); feelings scenarios stay about Buddy.
+- Fairness: "angry" is no longer wrong for the dropped ice cream; grapes is not a size object; mug and rug are not CVC pictures (look-alikes of cup and mat).
+- Routines: a morning wash and morning-only brushing; an evening bath, then shorts (not pyjamas). No sequence pairs two steps whose order varies between families, and six sequences give levels 1–2 real variety.
+- Words and tags: "cool drink" (id `cool-drink`) instead of cola; `wash-face` and `change-into-shorts` replace `wear-pyjamas`; bat is a cricket bat (`thing`); bus, car and van are `vehicle`; no `neatAndClean: false` tags; q's confusables include g; single-scene templates gain a second scene.
+- Validator: `{buddy}` is a known slot and `UI_SLOTS` (name, buddy) are never required of a rule (one more test). The CLI rejects unknown flags (exit 2) and sets `process.exitCode`; the pack test fails on any unexpected warning.
+- Counts: 93 objects and 173 lines (Step 11's expected line says 92 and 172). Step 2's ENOENT names `content/templates`, which is read first.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
 - Task 10: the property test also checks that item ids are unique within every payload, and that each round fills exactly the prompt slots `slotsFilled` (Task 6) promises.
+- Task 10: `renderCaption` leaves `{buddy}` to the UI like `{name}`, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
 - Task 12: `Profile.level` is typed `LevelId`.
+- Task 18: `speakSlot` says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 9 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 
 **Notes for Plan 1B** (surfaced by Plan 1A reviews)
@@ -5272,3 +5300,10 @@ The task text above is kept as written; where execution differed, the change is 
 - Build the browser pack from an eager `import.meta.glob('/content/templates/*.json')` and take `Object.values`: Vite sorts the keys in the same code-unit order as `readRawPack`, so template order — and therefore seeded picks — match Node.
 - `give` payloads with `count` (give-count) are interchangeable copies: accept **any** `count` of them; `correctIds` is only one valid choice, for the hint and the demonstration.
 - A `RoundItem.asset` starting with `glyph:` is drawn as text (the rest of the string is the character, e.g. `glyph:10`); every other asset is a vector path.
+- Fill `{name}` and `{buddy}` from the profile in captions, in bin labels (`{buddy}`) and in speech: call `AudioManager.speak` with `{ ...round.prompt.slots, name, buddy }`.
+- Scenario narrations end with the template prompt's question ("How does {buddy} feel?") — speak it once.
+- Never have Buddy act out an unkind choice ("laugh at them", "push to the front"); show the friend's sad face instead (§6.22). Watch playtests for answering by elimination: those two are the wrong answers in 2 of the 4 kindness scenarios.
+- The glyph font needs a capital I and a small l that look different (they appear side by side in capital/small rounds), and single-storey a and g.
+- Draw scene-then-choose vignettes full-frame: the set's background can contradict them (thunder over the playground).
+- Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
+- When writing new lines, keep slots mid-sentence: a spoken question that ends in a spliced slot ("Where is the {target}?") loses its rising intonation.
