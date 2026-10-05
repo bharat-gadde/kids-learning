@@ -2765,6 +2765,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import { readPack } from '../content/readPackFromDisk';
+import { slotsFilled } from '../content/validate';
 import { generateSet, renderCaption, pickVariant, pickScene } from './round';
 import { EMPTY_HISTORY, type Level, type Payload } from './types';
 import { mulberry32 } from '../rng';
@@ -2796,6 +2797,7 @@ describe('generateSet', () => {
           expect(r.level).toBe(level);
           expect(t.flavour.scenes).toContain(r.sceneId);
           expect(r.prompt.text.length).toBeGreaterThan(0);
+          expect(Object.keys(r.prompt.slots).sort()).toEqual([...slotsFilled(t)].sort()); // the validator's slot table matches the builders
           const p = r.payload;
           const ids = p.kind === 'choose' ? p.options : p.kind === 'pairs' ? [...p.left, ...p.right] : p.kind === 'scenario' ? p.choices : p.items;
           expect(new Set(ids.map((i) => i.id)).size).toBe(ids.length); // renderers key items by id
@@ -5254,10 +5256,13 @@ The task text above is kept as written; where execution differed, the change is 
 **Task 5 — round types and pool queries**
 - One matcher applies every query filter to either pool, through `categoryOf` / `tagOf`, instead of silently ignoring filters that don't fit (a glyph `category`, an object `glyph` filter); M1 output is unchanged. `tagOf` is typed per tag key. `GeneratorHistory` is read-only and `EMPTY_HISTORY` frozen. Doc comments state the real contracts of `correctSlot`, `itemIds`, `Level`, `RoundItem.id` and give-count. 9 tests instead of 7, including AND semantics, cross-pool filters and pack order.
 
+**Task 6 — validator**
+- "Passes ⇒ generates correctly" now holds for the M1 mechanics. Sort bins are checked against the items sorted into them (category bins cover every queried category; tag bins have a bin for the matching value and either a bin per other value or one catch-all). caseMate counts letters present in both cases. Every level must have enough matching and other items (`matchingShown` mirrors `buildMatching`), size sorts enough sizePair objects, named options allow for same-line twins, count drag-to-match ranges cover the groups, and give-count ranges start at 1. A prompt may only use slots its rule fills (`slotsFilled`). Repeated scenario choices, bins and scenes are errors; an unknown topic no longer hides the template's other errors; messages name the real top level. 18 tests instead of 11.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
-- Task 10: the property test also checks that item ids are unique within every payload.
+- Task 10: the property test also checks that item ids are unique within every payload, and that each round fills exactly the prompt slots `slotsFilled` (Task 6) promises.
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 
