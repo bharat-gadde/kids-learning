@@ -65,12 +65,15 @@ export interface Round {
   sceneId: string;
   prompt: RoundPrompt;
   payload: Payload;
-  /** index of the (first) correct entry in `choose` options or `scenario` choices; null for every other payload */
+  /**
+   * Where the slot rule put the answer in `choose` options or `scenario` choices (a scenario with two right answers
+   * reports the one it placed; tap-all, which shuffles its several answers, reports the first); null for every other payload.
+   */
   correctSlot: number | null;
   /**
    * The keys recent-repeat avoidance compares, fed back as history: the sampled object or glyph ids (for size and
-   * count rules the object itself, not its copies or the numeral), the rhyme group or pair key for pair rules,
-   * and the sequence or scenario id for those rules.
+   * count rules the object itself, not its copies or the numeral, plus `n:<value>` for each count asked about),
+   * the rhyme group or pair key for pair rules, and the sequence or scenario id for those rules.
    */
   itemIds: string[];
 }

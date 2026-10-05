@@ -173,6 +173,19 @@ describe('validatePack: content that passes generates correct rounds', () => {
     expect(errorsOf(raw)).toEqual(['prompt line prompt.tap_big uses {target}, which sort-into-bins with a size rule never fills']);
   });
 
+  it('keeps the answer out of a count-then-tap prompt: {targets} is filled, {n} never', () => {
+    const countTap = (prompt: string) => withTemplate({
+      rule: { kind: 'count' }, flavour: { scenes: ['garden'], promptLineId: 'prompt.count' },
+      difficulty: [{ options: 2, distractorSimilarity: 'low', range: [1, 3] }, { options: 3, distractorSimilarity: 'medium', range: [1, 5] }, { options: 4, distractorSimilarity: 'high', range: [1, 5] }],
+    }, {
+      objects: good.objects.map((o) => ({ ...o, tags: { ...o.tags, countable: true } })),
+      glyphs: Array.from({ length: 11 }, (_, n) => ({ id: `n${n}`, char: String(n), kind: 'number', pairKey: `n${n}`, value: n, lineId: `glyph.num.${n}` })),
+      lines: [...good.lines, line('prompt.count', prompt), ...Array.from({ length: 11 }, (_, n) => line(`glyph.num.${n}`, String(n)))],
+    });
+    expect(errorsOf(countTap('How many {targets} can you see?'))).toEqual([]);
+    expect(errorsOf(countTap('Tap {n}'))).toEqual(['prompt line prompt.count uses {n}, which tap-the-one with a count rule never fills']);
+  });
+
   it('flags repeated scenario choices, bins and scenes, and a give-count range from 0', () => {
     const scenario = {
       lines: [...good.lines, line('sc.x', 'What now?')],

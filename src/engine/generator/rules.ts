@@ -1,7 +1,7 @@
 // src/engine/generator/rules.ts
 import type { ContentPack } from '../content/load';
 import type { Bin, Difficulty, Glyph, Template } from '../content/schema';
-import { shuffle, type Rng } from '../rng';
+import { pick, shuffle, type Rng } from '../rng';
 import { categoryOf, glyphCandidate, objectCandidate, pluralOf, queryItems, tagOf, toRoundItem, type Candidate } from './items';
 import { pickDistractors, sampleWithoutRecent } from './sampling';
 import { chooseSlot, placeAt } from './slots';
@@ -79,7 +79,7 @@ function rangeInts(range: readonly [number, number] | undefined, what: string): 
 }
 
 /** Lay out one correct item among distractors, honouring the slot rules. */
-function chooseLayout(ctx: RuleContext, correct: RoundItem, others: RoundItem[]): { options: RoundItem[]; slot: number } {
+function chooseLayout<T extends RoundItem>(ctx: RuleContext, correct: T, others: readonly T[]): { options: T[]; slot: number } {
   const slot = chooseSlot(ctx.rng, others.length + 1, ctx.recentSlots, ctx.slotCounts);
   // placeAt keeps the others' order, and builders pass them sorted (similarity buckets, number distance).
   return { options: placeAt(correct, shuffle(ctx.rng, others), slot), slot };
@@ -130,8 +130,7 @@ function buildSize(ctx: RuleContext): RuleResult {
   const copies = scales.map((scale, i) => ({ ...base, id: `${base.id}@${i}`, scale }));
   const correctIndex = rule.target === 'larger' ? copies.length - 1 : 0;
   const correct = copies[correctIndex] as RoundItem;
-  const others = shuffle(ctx.rng, copies.filter((_, i) => i !== correctIndex));
-  const { options, slot } = chooseLayout(ctx, correct, others);
+  const { options, slot } = chooseLayout(ctx, correct, copies.filter((_, i) => i !== correctIndex));
   return {
     payload: { kind: 'choose', options, correctIds: [correct.id] },
     slots: { target: correctCand.item.id },
@@ -166,9 +165,9 @@ function buildMatching(ctx: RuleContext, matches: (c: Candidate) => boolean, bin
   const first = one(correct, 'matching item');
 
   if (mechanic === 'give-to-buddy') {
-    const [target] = requireBins(ctx);
+    const target = one(requireBins(ctx), 'bin');
     const items = shuffle(ctx.rng, [...correct, ...distractors].map(toRoundItem));
-    return { payload: { kind: 'give', target: toRoundBin(target as Bin), items, correctIds }, slots: { target: first.item.id }, itemIds: correctIds, correctSlot: null };
+    return { payload: { kind: 'give', target: toRoundBin(target), items, correctIds }, slots: { target: first.item.id }, itemIds: correctIds, correctSlot: null };
   }
 
   if (mechanic === 'tap-the-one') {
@@ -212,31 +211,65 @@ function groupItem(c: Candidate, n: number): RoundItem {
   return { ...base, id: `${base.id}x${n}`, label: `${n} ${noun}`, count: n };
 }
 
+/** The history key for a count a round asked about, kept in `itemIds` beside the object. */
+const countKey = (n: number) => `n:${n}`;
+
+/**
+ * `k` counts from the range. Counts change between rounds (spec §2.2), and they are asked in passes: a pass asks
+ * every count in the range once, in a fresh order, and the next pass never opens with the last round's counts.
+ * (Least recently used would also cover the range, but it replays a set's own order once a small range runs out: 1 3 2 1 3.)
+ */
+function sampleCounts(ctx: RuleContext, numbers: readonly number[], k: number): number[] {
+  const pool = numbers.map((n) => ({ id: countKey(n), n }));
+  const asked = ctx.avoid.filter((id) => pool.some((c) => c.id === id));
+  const pass = new Set<string>();
+  for (const id of asked) {
+    pass.add(id);
+    if (pass.size === pool.length) pass.clear();
+  }
+  return sampleWithoutRecent(ctx.rng, pool, k, [...pass, ...asked.slice(-k)]).map((c) => c.n);
+}
+
+/**
+ * The other numerals for "count, then tap the number", chosen so that n's rank among the numerals shown is random:
+ * neither "tap the biggest" nor "tap the middle one" pays. Low similarity: other numbers from the level's range, drawn
+ * like n itself (so its rank is uniform), and the nearest outside the range only when it is too narrow. Medium and
+ * high: the nearest numerals, with how many sit below n drawn first. validate.ts guarantees numerals for 0–10 and the range.
+ */
+function countDistractors(ctx: RuleContext, n: number, numbers: readonly number[]): number[] {
+  const k = ctx.difficulty.options - 1;
+  const others = Array.from({ length: Math.max(10, ...numbers) + 1 }, (_, x) => x).filter((x) => x !== n);
+  const nearest = (xs: number[]) => xs.sort((a, b) => Math.abs(a - n) - Math.abs(b - n));
+  if (ctx.difficulty.distractorSimilarity === 'low') {
+    return [...shuffle(ctx.rng, others.filter((x) => numbers.includes(x))), ...nearest(others.filter((x) => !numbers.includes(x)))].slice(0, k);
+  }
+  const below = nearest(others.filter((x) => x < n));
+  const above = nearest(others.filter((x) => x > n));
+  const fromBelow = Math.max(k - above.length, Math.min(below.length, pick(ctx.rng, Array.from({ length: k + 1 }, (_, i) => i))));
+  return [...below.slice(0, fromBelow), ...above.slice(0, k - fromBelow)];
+}
+
 function buildCount(ctx: RuleContext): RuleResult {
   const pool = candidates(ctx).filter((c) => tagOf(c, 'countable') === true);
   const obj = one(sampleWithoutRecent(ctx.rng, pool, 1, ctx.avoid), 'countable object');
   const numbers = rangeInts(ctx.difficulty.range, 'count');
 
   if (ctx.template.mechanic === 'drag-to-match') {
-    const ns = shuffle(ctx.rng, numbers).slice(0, ctx.difficulty.options);
+    const ns = shuffle(ctx.rng, sampleCounts(ctx, numbers, ctx.difficulty.options));
     const left = ns.map((n) => groupItem(obj, n));
     const right = shuffle(ctx.rng, ns.map((n) => toRoundItem(glyphCandidate(numberGlyph(ctx.pack, n)))));
     const pairs = ns.map((n): [string, string] => [`${obj.item.id}x${n}`, numberGlyph(ctx.pack, n).id]);
-    return { payload: { kind: 'pairs', left, right, pairs }, slots: {}, itemIds: [obj.item.id], correctSlot: null };
+    return { payload: { kind: 'pairs', left, right, pairs }, slots: {}, itemIds: [obj.item.id, ...ns.map(countKey)], correctSlot: null };
   }
 
-  const n = numbers[Math.floor(ctx.rng() * numbers.length)] as number;
-  const near = (d: number) => [n - d, n + d].filter((x) => x >= 0 && x <= 10 && x !== n);
-  const byDistance = [...near(1), ...near(2), ...near(3), ...shuffle(ctx.rng, numbers.filter((x) => x !== n))];
-  const ordered = ctx.difficulty.distractorSimilarity === 'low' ? shuffle(ctx.rng, byDistance) : byDistance;
-  const distractorNs = [...new Set(ordered)].slice(0, ctx.difficulty.options - 1);
+  const n = one(sampleCounts(ctx, numbers, 1), 'count');
   const correct = toRoundItem(glyphCandidate(numberGlyph(ctx.pack, n)));
-  const others = distractorNs.map((d) => toRoundItem(glyphCandidate(numberGlyph(ctx.pack, d))));
+  const others = countDistractors(ctx, n, numbers).map((d) => toRoundItem(glyphCandidate(numberGlyph(ctx.pack, d))));
   const { options, slot } = chooseLayout(ctx, correct, others);
   return {
     payload: { kind: 'choose', options, correctIds: [correct.id], stimulus: groupItem(obj, n) },
-    slots: { n: String(n), target: obj.item.id },
-    itemIds: [obj.item.id],
+    slots: { targets: obj.item.id }, // never n: it is the answer ("How many {targets} can you see?")
+    itemIds: [obj.item.id, countKey(n)],
     correctSlot: slot,
   };
 }
@@ -244,16 +277,15 @@ function buildCount(ctx: RuleContext): RuleResult {
 function buildGiveCount(ctx: RuleContext): RuleResult {
   const pool = candidates(ctx).filter((c) => tagOf(c, 'countable') === true);
   const obj = one(sampleWithoutRecent(ctx.rng, pool, 1, ctx.avoid), 'countable object');
-  const numbers = rangeInts(ctx.difficulty.range, 'give-count');
-  const n = numbers[Math.floor(ctx.rng() * numbers.length)] as number;
+  const n = one(sampleCounts(ctx, rangeInts(ctx.difficulty.range, 'give-count'), 1), 'count');
   const total = Math.max(ctx.difficulty.options, n + 2);
   const base = toRoundItem(obj);
   const items = Array.from({ length: total }, (_, i) => ({ ...base, id: `${base.id}#${i}` }));
-  const [target] = requireBins(ctx);
+  const target = one(requireBins(ctx), 'bin');
   return {
-    payload: { kind: 'give', target: toRoundBin(target as Bin), items, correctIds: items.slice(0, n).map((i) => i.id), count: n },
+    payload: { kind: 'give', target: toRoundBin(target), items, correctIds: items.slice(0, n).map((i) => i.id), count: n },
     slots: { n: String(n), targets: obj.item.id },
-    itemIds: [obj.item.id],
+    itemIds: [obj.item.id, countKey(n)],
     correctSlot: null,
   };
 }
@@ -313,7 +345,7 @@ function buildSequence(ctx: RuleContext): RuleResult {
   let items = shuffle(ctx.rng, ordered);
   for (let tries = 0; tries < 10 && items.every((it, i) => it.id === ordered[i]?.id); tries++) items = shuffle(ctx.rng, ordered);
   return {
-    payload: { kind: 'order', items, correctOrder: seq.steps },
+    payload: { kind: 'order', items, correctOrder: [...seq.steps] }, // a copy: a renderer reordering it must not reorder the pack
     slots: {},
     itemIds: [seq.id],
     correctSlot: null,
@@ -324,16 +356,19 @@ function buildSequence(ctx: RuleContext): RuleResult {
 function buildScenario(ctx: RuleContext): RuleResult {
   const all = [...ctx.pack.scenarios.values()].filter((s) => s.topicId === ctx.template.topicId);
   const sc = one(sampleWithoutRecent(ctx.rng, all, 1, ctx.avoid), 'scenario');
-  const choices = shuffle(ctx.rng, sc.choices).map((ch) => {
+  const choices = sc.choices.map((ch) => {
     const o = ctx.pack.objects.get(ch.objectId);
     if (!o) throw new GenerationError(`scenario ${sc.id} references unknown object ${ch.objectId}`);
     return { ...toRoundItem(objectCandidate(o)), correct: ch.correct, ...(ch.reactionLineId ? { reactionLineId: ch.reactionLineId } : {}) };
   });
+  // The slot rule places the first correct choice; a second correct one (toy-broken: angry or sad) is shuffled in with the rest.
+  const answer = one(choices.filter((c) => c.correct), `correct choice in ${sc.id}`);
+  const { options, slot } = chooseLayout(ctx, answer, choices.filter((c) => c !== answer));
   return {
-    payload: { kind: 'scenario', scenarioId: sc.id, vignette: sc.vignette, narrationLineId: sc.narrationLineId, choices },
+    payload: { kind: 'scenario', scenarioId: sc.id, vignette: sc.vignette, narrationLineId: sc.narrationLineId, choices: options },
     slots: {},
     itemIds: [sc.id],
-    correctSlot: choices.findIndex((c) => c.correct),
+    correctSlot: slot,
   };
 }
 

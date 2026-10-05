@@ -50,7 +50,7 @@ export const DEFAULT_MIN_TEMPLATES: Record<SubjectId, number> = {
 export function slotsFilled(t: Template): ReadonlySet<string> {
   switch (t.rule.kind) {
     case 'give-count': return new Set(['n', 'targets']);
-    case 'count': return new Set(t.mechanic === 'drag-to-match' ? [] : ['n', 'target']);
+    case 'count': return new Set(t.mechanic === 'drag-to-match' ? [] : ['targets']); // never {n}: tapping n is the answer
     case 'pair': case 'sequence': case 'scenario': return new Set();
     default: return new Set(t.mechanic === 'sort-into-bins' ? [] : ['target']); // named, size, tag, category
   }

@@ -95,6 +95,22 @@ describe('count', () => {
       expect(group.count).toBeLessThanOrEqual(8);
     }
   });
+
+  it('tap-the-one: one numeral is the group\'s count, and its rank among the numerals varies', () => {
+    const tap = { ...pack.templates.get('counting.match')!, mechanic: 'tap-the-one' as const }; // no M1 template yet (DPS 8)
+    const ranks = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const r = buildPayload({ ...ctx('counting.match', seed, 2), template: tap }); // 3 numerals, medium similarity
+      if (r.payload.kind !== 'choose') throw new Error('expected choose');
+      const values = r.payload.options.map((o) => pack.glyphs.get(o.id)!.value!);
+      expect(new Set(values).size).toBe(3);
+      expect(values[r.correctSlot!]).toBe(r.payload.stimulus!.count);
+      expect(r.payload.correctIds).toEqual([r.payload.options[r.correctSlot!]!.id]);
+      expect(r.slots).toEqual({ targets: r.itemIds[0] }); // never {n}: it is the answer
+      ranks.add([...values].sort((a, b) => a - b).indexOf(r.payload.stimulus!.count!));
+    }
+    expect(ranks.size).toBe(3); // "tap the middle number" does not always win
+  });
 });
 
 describe('give-count', () => {
@@ -105,6 +121,23 @@ describe('give-count', () => {
     expect(r.payload.correctIds.length).toBe(r.payload.count);
     expect(r.payload.items.length).toBeGreaterThanOrEqual(r.payload.count! + 2);
     expect(new Set(r.payload.items.map((i) => i.id.split('#')[0])).size).toBe(1);
+  });
+
+  it('asks every count in the range, then again in a new order, never the same n twice running', () => {
+    const replayed = new Set<boolean>();
+    for (let seed = 0; seed < 50; seed++) {
+      const avoid: string[] = [];
+      const ns = Array.from({ length: 6 }, (_, i) => {
+        const r = buildPayload(ctx('counting.give', seed * 10 + i, 1, [...avoid]));
+        avoid.push(...r.itemIds);
+        return Number(r.slots.n);
+      });
+      expect(ns.slice(0, 3).sort((a, b) => a - b)).toEqual([1, 2, 3]); // level 1 asks for 1–3
+      expect(ns.slice(3).sort((a, b) => a - b)).toEqual([1, 2, 3]);
+      expect(ns.some((n, i) => i > 0 && n === ns[i - 1])).toBe(false);
+      replayed.add(ns.slice(3).join() === ns.slice(0, 3).join());
+    }
+    expect(replayed).toEqual(new Set([true, false])); // least recently used would replay the first pass every time
   });
 });
 
@@ -138,6 +171,12 @@ describe('sequence', () => {
     expect([...r.payload.items.map((i) => i.id)].sort()).toEqual([...r.payload.correctOrder].sort());
     expect(r.promptLineId).toMatch(/^prompt\.order_/);
   });
+
+  it('hands out its own correctOrder, so reordering it cannot reorder the pack', () => {
+    const r = buildPayload(ctx('good-habits.order', 1, 3));
+    if (r.payload.kind !== 'order') throw new Error('expected order');
+    expect(r.payload.correctOrder).not.toBe(pack.sequences.get(r.itemIds[0]!)!.steps);
+  });
 });
 
 describe('scenario', () => {
@@ -146,7 +185,45 @@ describe('scenario', () => {
     if (r.payload.kind !== 'scenario') throw new Error('expected scenario');
     expect(pack.scenarios.has(r.payload.scenarioId)).toBe(true);
     expect(r.payload.choices.some((c) => c.correct)).toBe(true);
-    expect(r.correctSlot).toBe(r.payload.choices.findIndex((c) => c.correct));
+    expect(r.payload.choices[r.correctSlot!]!.correct).toBe(true);
     expect(r.itemIds).toEqual([r.payload.scenarioId]);
+  });
+
+  it('places the answer by the slot rule: never a third time running in one slot', () => {
+    for (const id of ['kind-fair.scene', 'feelings.scene']) {
+      for (let seed = 0; seed < 50; seed++) {
+        const r = buildPayload({ ...ctx(id, seed), recentSlots: [1, 1] });
+        if (r.payload.kind !== 'scenario') throw new Error('expected scenario');
+        expect(r.correctSlot).not.toBe(1);
+        expect(r.payload.choices[r.correctSlot!]!.correct).toBe(true);
+      }
+    }
+  });
+});
+
+describe('every M1 template', () => {
+  it('builds a self-consistent payload at every level, the same way twice', () => {
+    for (const template of pack.templates.values()) {
+      for (const level of [1, 2, 3] as const) {
+        for (let seed = 0; seed < 40; seed++) {
+          const r = buildPayload(ctx(template.id, seed, level));
+          expect(buildPayload(ctx(template.id, seed, level))).toEqual(r);
+          const p = r.payload;
+          if (p.kind === 'choose') {
+            expect(p.options).toHaveLength(difficultyAt(template, level).options);
+            expect(p.correctIds.every((id) => p.options.some((o) => o.id === id))).toBe(true);
+            expect(p.correctIds).toContain(p.options[r.correctSlot!]!.id);
+          } else if (p.kind === 'scenario') {
+            expect(p.choices[r.correctSlot!]!.correct).toBe(true);
+          } else {
+            expect(r.correctSlot).toBeNull();
+          }
+          if (p.kind === 'give') expect(p.correctIds.every((id) => p.items.some((i) => i.id === id))).toBe(true);
+          if (p.kind === 'bins') expect(p.items.every((i) => p.bins.some((b) => b.id === i.binId))).toBe(true);
+          if (p.kind === 'pairs') for (const [a, b] of p.pairs) expect([p.left.some((l) => l.id === a), p.right.some((x) => x.id === b)]).toEqual([true, true]);
+          if (p.kind === 'order') expect(p.items.map((i) => i.id)).not.toEqual(p.correctOrder);
+        }
+      }
+    }
   });
 });
