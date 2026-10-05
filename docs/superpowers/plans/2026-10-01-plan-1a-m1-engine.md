@@ -2874,7 +2874,7 @@ Expected: FAIL — `Cannot find module './round'`.
 ```ts
 // src/engine/generator/round.ts
 import type { ContentPack } from '../content/load';
-import type { Template } from '../content/schema';
+import { UI_SLOTS, type Template } from '../content/schema';
 import { deriveSeed, mulberry32, pick, type Rng } from '../rng';
 import { pluralOf } from './items';
 import { buildPayload, difficultyAt, GenerationError } from './rules';
@@ -2908,12 +2908,12 @@ export function slotLabel(pack: ContentPack, slot: string, value: string): strin
 }
 
 /**
- * Fill a caption's slots. {name} and {buddy} are left for the UI (the child's name and the name the child gave
- * Buddy — the validator's UI_SLOTS). "{n} {targets}" uses the singular when n is 1: "Give Buddy 1 apple".
+ * Fill a caption's slots. UI_SLOTS ({name}, {buddy}) are left for the UI to fill from the profile.
+ * "{n} {targets}" uses the singular when n is 1: "Give Buddy 1 apple".
  */
 export function renderCaption(pack: ContentPack, text: string, slots: Readonly<Record<string, string>>): string {
   return text.replace(/\{(\w+)\}/g, (whole, slot: string) => {
-    if (slot === 'name' || slot === 'buddy') return whole;
+    if (UI_SLOTS.has(slot)) return whole;
     const value = slots[slot];
     if (value === undefined) return whole;
     return slotLabel(pack, slot === 'targets' && slots.n === '1' ? 'target' : slot, value);
@@ -3062,7 +3062,7 @@ rounds.forEach((r, i) => {
 - [ ] **Step 2: Run it for three templates**
 
 Run: `npm run inspect -- big-small.tap --seed 7 --level 2 && npm run inspect -- counting.give --seed 3 && npm run inspect -- kind-fair.scene --seed 1`
-Expected: readable listings; in `big-small.tap` the ✓ moves between slots across the six rounds and no object repeats; `counting.give` shows "Give Buddy N …" with N ✓ copies; `kind-fair.scene` shows the narration and the kind choice ticked.
+Expected: readable listings; in `big-small.tap` the ✓ moves between slots across the six rounds and no object repeats; `counting.give` shows "… give {buddy} N …" with N ✓ copies (the CLI leaves the UI's `{buddy}` unfilled); `kind-fair.scene` shows the narration and the kind choice ticked.
 
 - [ ] **Step 3: Commit**
 
@@ -4308,6 +4308,13 @@ describe('AudioManager.speak', () => {
     ]);
   });
 
+  it('speaks a chosen name as typed, even when it is also an object id', async () => {
+    const tts = new FakeTts();
+    const am = new AudioManager({ pack, clips: new FakeClips(new Set()), player: new FakePlayer(), tts });
+    await am.speak({ lineId: 'prompt.scene_feeling', variant: 0, slots: { buddy: 'teddy' } });
+    expect(tts.spoken).toEqual(['How does', 'teddy', 'feel?']);
+  });
+
   it('says the singular after a count of one', async () => {
     const am = new AudioManager({ pack, clips: everyClip, player: new FakePlayer(), tts: new FakeTts() });
     const parts = await am.speak({ lineId: 'prompt.give_n', variant: 1, slots: { n: '1', targets: 'mango', buddy: 'Gajju' } });
@@ -4389,6 +4396,7 @@ export class ManifestClipSource implements ClipSource {
 // src/engine/audio/manager.ts
 import type { ContentPack } from '../content/load';
 import { pluralOf } from '../generator/items';
+import { UI_SLOTS } from '../content/schema';
 import { clipIdFor, pluralClipId, segmentLine } from './lines';
 
 export interface ClipSource {
@@ -4468,8 +4476,9 @@ export class AudioManager {
     this.deps.tts.cancel();
   }
 
-  /** {targets} is spoken in the plural except after an {n} of 1 ("one apple"); {name} and {buddy} go to TTS. */
+  /** {targets} is spoken in the plural except after an {n} of 1 ("one apple"); UI_SLOTS ({name}, {buddy}) go to TTS. */
   private async speakSlot(name: string, value: string, n?: string): Promise<SpokenPart> {
+    if (UI_SLOTS.has(name)) return this.tts(value); // a name from the profile, never an object or glyph id
     const { pack } = this.deps;
     const object = pack.objects.get(value);
     if (object) {
@@ -4507,7 +4516,7 @@ export class AudioManager {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/audio/manager.test.ts`
-Expected: PASS (9 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -5282,17 +5291,17 @@ The task text above is kept as written; where execution differed, the change is 
 - Buddy's chosen name: every line that names Buddy uses a UI-filled `{buddy}` slot, with no possessive after it and no gendered pronoun. Kindness scenarios speak to "you" and "your friend" (no "Mia"); feelings scenarios stay about Buddy.
 - Fairness: "angry" is no longer wrong for the dropped ice cream; grapes is not a size object; mug and rug are not CVC pictures (look-alikes of cup and mat).
 - Routines: a morning wash and morning-only brushing; an evening bath, then shorts (not pyjamas). No sequence pairs two steps whose order varies between families, and six sequences give levels 1–2 real variety.
-- Words and tags: "cool drink" (id `cool-drink`) instead of cola; `wash-face` and `change-into-shorts` replace `wear-pyjamas`; bat is a cricket bat (`thing`); bus, car and van are `vehicle`; no `neatAndClean: false` tags; q's confusables include g; single-scene templates gain a second scene.
-- Validator: `{buddy}` is a known slot and `UI_SLOTS` (name, buddy) are never required of a rule (one more test). The CLI rejects unknown flags (exit 2) and sets `process.exitCode`; the pack test fails on any unexpected warning.
+- Words and tags: "cool drink" (id `cool-drink`) instead of cola; `wash-face` and `change-into-shorts` replace `wear-pyjamas`; bat is a cricket bat (`thing`); bus, car and van stay `thing` (as `vehicle`, bus and van were each other's first distractor in half the CVC rounds); no `neatAndClean: false` tags; q's confusables include g; single-scene templates gain a second scene.
+- Validator: `{buddy}` is a known slot and `UI_SLOTS` (name, buddy — defined once in `content/schema.ts`) are never required of a rule (one more test). `good-habits.order` level 3 shows 4 steps, like level 2: a fair 5-step chain would pair steps whose order varies. The CLI rejects unknown flags (exit 2) and sets `process.exitCode`; the pack test fails on any unexpected warning.
 - Counts: 93 objects and 173 lines (Step 11's expected line says 92 and 172). Step 2's ENOENT names `content/templates`, which is read first.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
 - Task 10: the property test also checks that item ids are unique within every payload, and that each round fills exactly the prompt slots `slotsFilled` (Task 6) promises.
-- Task 10: `renderCaption` leaves `{buddy}` to the UI like `{name}`, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
+- Task 10: `renderCaption` leaves UI_SLOTS (`{name}`, `{buddy}`, from `content/schema.ts`) to the UI, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
 - Task 12: `Profile.level` is typed `LevelId`.
-- Task 18: `speakSlot` says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 9 tests.
+- Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 
 **Notes for Plan 1B** (surfaced by Plan 1A reviews)
@@ -5300,7 +5309,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Build the browser pack from an eager `import.meta.glob('/content/templates/*.json')` and take `Object.values`: Vite sorts the keys in the same code-unit order as `readRawPack`, so template order — and therefore seeded picks — match Node.
 - `give` payloads with `count` (give-count) are interchangeable copies: accept **any** `count` of them; `correctIds` is only one valid choice, for the hint and the demonstration.
 - A `RoundItem.asset` starting with `glyph:` is drawn as text (the rest of the string is the character, e.g. `glyph:10`); every other asset is a vector path.
-- Fill `{name}` and `{buddy}` from the profile in captions, in bin labels (`{buddy}`) and in speech: call `AudioManager.speak` with `{ ...round.prompt.slots, name, buddy }`.
+- Fill `{name}` and `{buddy}` from the profile (fall back to "Buddy" if no name was chosen) in captions, in bin labels (`{buddy}`) and in speech: call `AudioManager.speak` with `{ ...round.prompt.slots, name, buddy }`.
 - Scenario narrations end with the template prompt's question ("How does {buddy} feel?") — speak it once.
 - Never have Buddy act out an unkind choice ("laugh at them", "push to the front"); show the friend's sad face instead (§6.22). Watch playtests for answering by elimination: those two are the wrong answers in 2 of the 4 kindness scenarios.
 - The glyph font needs a capital I and a small l that look different (they appear side by side in capital/small rounds), and single-storey a and g.

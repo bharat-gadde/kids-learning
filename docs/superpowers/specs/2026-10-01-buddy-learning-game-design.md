@@ -182,7 +182,7 @@ Subject (5) → Topic (40) → Goal (1–4 per topic) → Template (163) → Rou
 | `objects` | ~300 | id · display name · spoken name (line id) · picture (vector asset id) · category (animal, fruit, vegetable, vehicle, clothing, body part, school thing, home thing, helper, tool, shape, …) · tags: `sizePair` (has a small/large rendering), `colour`, `countable`, `beginsWith` (letter), `vowelSound`, `rhymeGroup`, `habitat`, `season`, `transportMode`, `sense`, `room`, `healthy`, `teethFriendly`, `neatAndClean`, `sound` (audio id) |
 | `scenes` | ~30 | background art · theme (bathroom, kitchen, playground, classroom, garden, farm, jungle, sea, road, town, bedroom, …) · anchor points for placing objects |
 | `pairs` | ~50 | scenario doodle pairs with a state: clean/dirty shirt, tidy/messy room, washed/unwashed hands, combed/messy hair, cut/long nails, healthy/junk plate, wet/dry, full/empty cup, happy/sad child, … |
-| `lines` | hundreds | spoken-line templates with slots, e.g. `tap_the_big {object}` → "Tap the BIG {object}". Each line id resolves through the audio chain (§7). |
+| `lines` | hundreds | spoken-line templates with slots, e.g. `tap_big {target}` → "Tap the biggest {target}". Each line id resolves through the audio chain (§7). |
 | `glyphs` | 52 + 21 | letters a–z, A–Z, numbers 0–20 with reference stroke paths, stroke order, and zone rules (ascender/body/descender) |
 | `stories` | 3 at launch | 4-page narrated picture stories (feelings, kindness) |
 | `events` | 11 at launch | Home random events |
@@ -211,7 +211,7 @@ The generator is deterministic from `(template, seed, profile history)` so any r
 
 1. **Sampling without recent repeats:** items not used for this goal in the last 3 sessions are preferred; distractors likewise.
 2. **Position shuffle:** the correct answer's slot differs from the previous round's slot; across a set, slots are balanced.
-3. **Wording variants:** each line has 2–4 phrasings sharing the key word ("Tap the BIG car" / "Which car is BIG?" / "Find the BIG one").
+3. **Wording variants:** each line has 2–4 phrasings sharing the key word ("Tap the biggest car" / "Which car is the biggest?" / "Find the biggest car").
 4. **Scene variants:** the background changes every set.
 5. **Mechanic rotation:** when a topic is played on consecutive days, a different template (mechanic) is chosen than last time, if the topic has more than one.
 6. **Interleaving:** Buddy's suggestion alternates islands and prefers shaky goals; the picker never queues the same topic twice in a row.
