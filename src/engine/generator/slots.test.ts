@@ -9,7 +9,7 @@ const SEEDS = Array.from({ length: 50 }, (_, i) => i);
 const outcomes = (f: (seed: number) => number) => [...new Set(SEEDS.map(f))].sort();
 
 describe('chooseSlot', () => {
-  it('never puts the answer in one slot three times running, and stays within one use of the least-used', () => {
+  it('never puts the answer in one slot three times running, nor in a slot more than one use ahead of the least-used', () => {
     fc.assert(
       fc.property(
         fc.integer(),
@@ -57,7 +57,7 @@ describe('chooseSlot', () => {
     expect(outcomes((seed) => chooseSlot(mulberry32(seed), 3, [0, 1], [1, 1]))).toEqual([0, 1, 2]);
   });
 
-  it('keeps every slot within one use of the least-used', () => {
+  it('waits with a slot that is more than one use ahead of the least-used', () => {
     // slot 0 used twice, 1 once, 2 not yet → 0 waits until slot 2 catches up, though it was not the last slot
     expect(outcomes((seed) => chooseSlot(mulberry32(seed), 3, [0, 0, 1], [2, 1, 0]))).toEqual([1, 2]);
   });
