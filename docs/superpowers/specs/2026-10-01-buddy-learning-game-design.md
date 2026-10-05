@@ -126,7 +126,7 @@ Five islands on one scrolling map. Each island has topic spots (a signpost with 
 | 🌍 Our World | Awareness | Body & senses · Me, family & home · My school · Fruits, veg & healthy food · Animals · Plants & flowers · Seasons, weather & clothes · Transport · Community helpers & places · Good habits & manners |
 | 💗 Feelings Forest | Wellness | Feelings · Kind & fair · Calm & me |
 
-**Suggestion, not gating.** Buddy points at a suggested spot, preferring goals that are "shaky" or need practice (§5.5) and never on the island just played. The child may tap anywhere. (The parent's "today's focus" feature, after v1, restricts which spots are open.)
+**Suggestion, not gating.** Buddy points at a suggested spot on a different island from the last one played whenever another island has a spot, preferring goals that are "shaky" or need practice (§5.5). The child may tap anywhere. (The parent's "today's focus" feature, after v1, restricts which spots are open.)
 
 ### 4.4 Sets, rounds and feedback
 
