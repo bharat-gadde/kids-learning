@@ -2824,6 +2824,16 @@ describe('generateSet', () => {
     expect(alternating).toBeLessThan(100); // of 200 two-option sets; "never twice running" alternates in every one
   });
 
+  it('applies the same slot rule to scene-then-choose answers', () => {
+    for (const id of ['feelings.scene', 'kind-fair.scene']) {
+      for (let seed = 0; seed < 200; seed++) {
+        const slots = generateSet(pack, pack.templates.get(id)!, { seed, level: 1, history: { ...EMPTY_HISTORY, lastSlot: 0 } }).map((r) => r.correctSlot);
+        const run = [0, ...slots];
+        for (let i = 2; i < run.length; i++) expect(run[i] === run[i - 1] && run[i] === run[i - 2]).toBe(false);
+      }
+    }
+  });
+
   it('does not replay the last set in the same order when history covers a small pool', () => {
     const t = pack.templates.get('feelings.tap')!; // 6 rounds over 6 faces
     let replays = 0;
@@ -2893,7 +2903,7 @@ import type { ContentPack } from '../content/load';
 import { UI_SLOTS, type Template } from '../content/schema';
 import { deriveSeed, mulberry32, pick, shuffle, type Rng } from '../rng';
 import { pluralOf } from './items';
-import { buildPayload, difficultyAt, GenerationError } from './rules';
+import { buildPayload, difficultyAt, GenerationError, type RuleResult } from './rules';
 import type { GeneratorHistory, Level, Round } from './types';
 
 export interface GenerateOptions {
@@ -2949,7 +2959,14 @@ interface RoundOptions {
 export function generateRound(pack: ContentPack, template: Template, opts: RoundOptions): Round {
   const rng = mulberry32(opts.seed);
   const difficulty = difficultyAt(template, opts.level);
-  const result = buildPayload({ pack, template, rng, level: opts.level, difficulty, avoid: opts.avoid, recentSlots: opts.recentSlots, slotCounts: opts.slotCounts });
+  let result: RuleResult;
+  try {
+    result = buildPayload({ pack, template, rng, level: opts.level, difficulty, avoid: opts.avoid, recentSlots: opts.recentSlots, slotCounts: opts.slotCounts });
+  } catch (e) {
+    // name what replays it: "no countable object available" alone does not say which template, seed or level
+    if (e instanceof GenerationError) throw new GenerationError(`${template.id} (seed ${opts.seed}, level ${opts.level}): ${e.message}`, { cause: e });
+    throw e;
+  }
   const lineId = result.promptLineId ?? template.flavour.promptLineId;
   const line = pack.lines.get(lineId);
   if (!line) throw new GenerationError(`missing line ${lineId}`);
@@ -3008,7 +3025,7 @@ export function generateSet(pack: ContentPack, template: Template, opts: Generat
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/generator/round.test.ts`
-Expected: PASS (10 tests). If the property test reports a failing seed, the shrunk counter-example names the template, level and seed — reproduce it with the inspect CLI from Task 11.
+Expected: PASS (11 tests). If the property test reports a failing seed, the shrunk counter-example names the template, level and seed — reproduce it with the inspect CLI from Task 11.
 
 - [ ] **Step 5: Commit**
 
@@ -5318,12 +5335,20 @@ The task text above is kept as written; where execution differed, the change is 
 - The slot rule changed (spec §2.2 / §5.4 rule 2, measured on the real generator over 400 simulated children × 8 chained sets). "Never the same slot twice" made level 1 strict left-right alternation: a child tapping "the other side" scored 99% and was promoted in 93% of set pairs (promotion needs two sets running at ≥ 85%). Now the answer may repeat once but never three times running, and every slot stays within one use of the least-used. Position alone now promotes in ≤ 0.3% of set pairs; a slot rule-follower scores 65 / 42 / 31% against chance 50 / 33 / 25%. `chooseSlot` takes the recent slots (`recent`, passed in as `recentSlots`) instead of only the last one.
 - `sampleWithoutRecent` guards `n <= 0`; docs state that the stale fallback draws nothing (callers shuffle equally old ids) and that distractor similarity is judged against the first correct entry. Tests pin the randomness itself (shuffled fresh items and buckets, random tie-breaks) and the run cap and balance: 28 of 31 mutants killed, the 3 survivors equivalent.
 
+**Task 9 — rule builders** (the quality review measured scenario slots, count variation and count-tap distractors on the real generator)
+- scene-then-choose answers go through `chooseLayout`, so the slot rule (spec §5.4 rule 2) covers them too: freely shuffled choices put the answer in one slot three times running in 19–21% of feelings.scene and kind-fair.scene sets. With two right answers (toy-broken), the first is placed and reported as `correctSlot`; the other is shuffled in with the rest.
+- Counts change between rounds (spec §2.2): give-count asked the same n twice running in 60–80% of sets. Counts now join `itemIds` as `n:<value>` (the `Round.itemIds` doc says so) and are asked in passes: every count in the level's range once, in a fresh order, and the next pass never opens with the last round's count. Plain least-recently-used would replay each set's own order once a small range runs out (`1 3 2 1 3` in every level-1 set). drag-to-match groups use the same passes.
+- count + tap-the-one (no M1 template yet; DPS 8 "count and circle the number" can be added as JSON alone): the distractor numerals give the answer a random rank — before, at medium similarity it was always the middle numeral — and low-similarity distractors stay inside the level's range. Its prompt slots are `{targets}` only, since `{n}` would speak the answer; Task 6's `slotsFilled` changed with it (one more validator test).
+- `correctOrder` is a copy of the sequence's steps (a renderer reordering it reordered the loaded pack); the size tap path shuffles once; two `as Bin` casts are gone.
+- 18 tests instead of 13: count-tap rank and slots, counting passes, `correctOrder` identity, the scenario slot rule, and a sweep that builds every M1 template at every level over 40 seeds, twice, and checks each payload's consistency.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
 - Task 9: `RuleContext.recentSlots` replaces `lastSlot`, and `chooseLayout` shuffles the distractors before placing the answer (builders hand them over sorted — by similarity bucket, or by distance from the counted number — which made the answer's neighbours predictable).
-- Task 10: `generateSet` threads `recentSlots` (seeded with the history's last slot) and shuffles the recent history ids before using them, so a pool the history covers (feelings: 6 faces) no longer replays the previous set in the same order. The "never the same slot twice running" test is replaced by "never three times running, and does not just alternate", and a replay test is added (10 tests).
+- Task 10: `generateSet` threads `recentSlots` (seeded with the history's last slot) and shuffles the recent history ids before using them, so a pool the history covers (feelings: 6 faces) no longer replays the previous set in the same order. The "never the same slot twice running" test is replaced by "never three times running, and does not just alternate", and a replay test is added.
 - Task 10: the property test also checks that item ids are unique within every payload, and that each round fills exactly the prompt slots `slotsFilled` (Task 6) promises.
+- Task 10: `generateRound` re-throws a builder's `GenerationError` prefixed with the template, seed and level that reproduce it, and a test checks the slot rule on scene-then-choose sets (11 tests).
 - Task 10: `renderCaption` leaves UI_SLOTS (`{name}`, `{buddy}`, from `content/schema.ts`) to the UI, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
@@ -5340,4 +5365,6 @@ The task text above is kept as written; where execution differed, the change is 
 - The glyph font needs a capital I and a small l that look different (they appear side by side in capital/small rounds), and single-storey a and g.
 - Draw scene-then-choose vignettes full-frame: the set's background can contradict them (thunder over the playground).
 - Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
+- Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
+- `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - When writing new lines, keep slots mid-sentence: a spoken question that ends in a spliced slot ("Where is the {target}?") loses its rising intonation.
