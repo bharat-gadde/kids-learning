@@ -41,7 +41,7 @@
   { "id": "n", "char": "n", "kind": "letter", "case": "lower", "pairKey": "n", "lineId": "glyph.letter.n", "confusables": ["m", "u", "h"] },
   { "id": "o", "char": "o", "kind": "letter", "case": "lower", "pairKey": "o", "lineId": "glyph.letter.o", "confusables": ["c", "e", "a"] },
   { "id": "p", "char": "p", "kind": "letter", "case": "lower", "pairKey": "p", "lineId": "glyph.letter.p", "confusables": ["b", "d", "q"] },
-  { "id": "q", "char": "q", "kind": "letter", "case": "lower", "pairKey": "q", "lineId": "glyph.letter.q", "confusables": ["b", "d", "p"] },
+  { "id": "q", "char": "q", "kind": "letter", "case": "lower", "pairKey": "q", "lineId": "glyph.letter.q", "confusables": ["g", "b", "d", "p"] },
   { "id": "r", "char": "r", "kind": "letter", "case": "lower", "pairKey": "r", "lineId": "glyph.letter.r", "confusables": ["n"] },
   { "id": "s", "char": "s", "kind": "letter", "case": "lower", "pairKey": "s", "lineId": "glyph.letter.s", "confusables": ["z"] },
   { "id": "t", "char": "t", "kind": "letter", "case": "lower", "pairKey": "t", "lineId": "glyph.letter.t", "confusables": ["l", "f"] },

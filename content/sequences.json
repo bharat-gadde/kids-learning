@@ -1,6 +1,8 @@
 [
-  { "id": "seq.morning", "topicId": "good-habits", "promptLineId": "prompt.order_morning", "steps": ["wake-up", "brush-teeth", "take-bath", "eat-breakfast", "pack-bag"] },
+  { "id": "seq.morning", "topicId": "good-habits", "promptLineId": "prompt.order_morning", "steps": ["wake-up", "brush-teeth", "eat-breakfast", "pack-bag"] },
   { "id": "seq.morning-short", "topicId": "good-habits", "promptLineId": "prompt.order_morning", "steps": ["wake-up", "brush-teeth", "eat-breakfast"] },
-  { "id": "seq.bedtime", "topicId": "good-habits", "promptLineId": "prompt.order_bedtime", "steps": ["eat-dinner", "brush-teeth", "wear-pyjamas", "read-story", "go-to-sleep"] },
-  { "id": "seq.bedtime-short", "topicId": "good-habits", "promptLineId": "prompt.order_bedtime", "steps": ["wear-pyjamas", "read-story", "go-to-sleep"] }
+  { "id": "seq.morning-wash", "topicId": "good-habits", "promptLineId": "prompt.order_morning", "steps": ["wake-up", "wash-face", "eat-breakfast"] },
+  { "id": "seq.bedtime", "topicId": "good-habits", "promptLineId": "prompt.order_bedtime", "steps": ["take-bath", "change-into-shorts", "read-story", "go-to-sleep"] },
+  { "id": "seq.bedtime-short", "topicId": "good-habits", "promptLineId": "prompt.order_bedtime", "steps": ["change-into-shorts", "read-story", "go-to-sleep"] },
+  { "id": "seq.bedtime-dinner", "topicId": "good-habits", "promptLineId": "prompt.order_bedtime", "steps": ["eat-dinner", "read-story", "go-to-sleep"] }
 ]

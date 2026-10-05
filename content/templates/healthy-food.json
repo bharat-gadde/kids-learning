@@ -8,6 +8,6 @@
   { "id": "healthy-food.plate", "topicId": "healthy-food", "goalId": "healthy-food.choose", "mechanic": "give-to-buddy", "itemClass": "food",
     "query": { "pool": "objects", "category": ["fruit", "vegetable", "meal", "junk"] }, "rule": { "kind": "tag", "tag": "healthy", "value": true }, "rounds": 4,
     "difficulty": [{ "options": 4, "correctCount": 2, "distractorSimilarity": "low" }, { "options": 6, "correctCount": 3, "distractorSimilarity": "medium" }, { "options": 8, "correctCount": 4, "distractorSimilarity": "high" }],
-    "bins": [{ "id": "plate", "label": "Buddy's plate", "lineId": "bin.plate", "asset": "bins/plate.svg", "match": true }],
-    "flavour": { "scenes": ["kitchen"], "promptLineId": "prompt.healthy_plate" }, "level": "lkg" }
+    "bins": [{ "id": "plate", "label": "plate", "lineId": "bin.plate", "asset": "bins/plate.svg", "match": true }],
+    "flavour": { "scenes": ["kitchen", "garden"], "promptLineId": "prompt.healthy_plate" }, "level": "lkg" }
 ]

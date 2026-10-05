@@ -1,6 +1,6 @@
 [
   { "id": "sc.ice-cream-fell", "topicId": "feelings", "narrationLineId": "sc.ice-cream-fell", "vignette": "vignettes/ice-cream-fell.svg",
-    "choices": [{ "objectId": "sad", "correct": true }, { "objectId": "happy", "correct": false }, { "objectId": "angry", "correct": false }] },
+    "choices": [{ "objectId": "sad", "correct": true }, { "objectId": "happy", "correct": false }, { "objectId": "scared", "correct": false }] },
   { "id": "sc.birthday-gift", "topicId": "feelings", "narrationLineId": "sc.birthday-gift", "vignette": "vignettes/birthday-gift.svg",
     "choices": [{ "objectId": "happy", "correct": true }, { "objectId": "sad", "correct": false }, { "objectId": "scared", "correct": false }] },
   { "id": "sc.loud-thunder", "topicId": "feelings", "narrationLineId": "sc.loud-thunder", "vignette": "vignettes/loud-thunder.svg",

@@ -6,6 +6,6 @@
   { "id": "counting.give", "topicId": "counting", "goalId": "counting.give", "mechanic": "give-to-buddy", "itemClass": "groups",
     "query": { "pool": "objects", "tags": { "countable": true, "healthy": true } }, "rule": { "kind": "give-count" }, "rounds": 5,
     "difficulty": [{ "options": 5, "distractorSimilarity": "low", "range": [1, 3] }, { "options": 7, "distractorSimilarity": "medium", "range": [2, 5] }, { "options": 8, "distractorSimilarity": "high", "range": [3, 7] }],
-    "bins": [{ "id": "buddy", "label": "Buddy", "lineId": "bin.buddy" }],
+    "bins": [{ "id": "buddy", "label": "{buddy}", "lineId": "bin.buddy" }],
     "flavour": { "scenes": ["kitchen", "garden"], "promptLineId": "prompt.give_n" }, "level": "lkg" }
 ]
