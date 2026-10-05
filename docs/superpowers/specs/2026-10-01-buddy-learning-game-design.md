@@ -210,7 +210,7 @@ Every template is one data file with these fields:
 The generator is deterministic from `(template, seed, profile history)` so any round can be replayed.
 
 1. **Sampling without recent repeats:** items not used for this goal in the last 3 sessions are preferred; distractors likewise.
-2. **Position shuffle:** the correct answer's slot may repeat once but never three times running; across a set, every slot stays within one use of the least-used.
+2. **Position shuffle:** the correct answer's slot may repeat once but never three times running, and it only goes to a slot at most one use ahead of the least-used (always taking the least-used slot would make every second two-option round predictable).
 3. **Wording variants:** each line has 2–4 phrasings sharing the key word ("Tap the biggest car" / "Which car is the biggest?" / "Find the biggest car").
 4. **Scene variants:** the background changes every set.
 5. **Mechanic rotation:** when a topic is played on consecutive days, a different template (mechanic) is chosen than last time, if the topic has more than one.
@@ -499,7 +499,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 
 | Layer | What is verified | How |
 |---|---|---|
-| Round generator & variation rules | the correct answer never sits in one slot three times running, and every slot stays within one use of the least-used; no item repeats within 3 sessions for a goal; mechanic rotation on consecutive days; difficulty ramps up/down as specified; determinism from seed | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
+| Round generator & variation rules | the correct answer never sits in one slot three times running, and only goes to a slot at most one use ahead of the least-used; no item repeats within 3 sessions for a goal; mechanic rotation on consecutive days; difficulty ramps up/down as specified; determinism from seed | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
 | Mastery & bridging | status transitions; ≥ 3 forms required; bridging picks a known-good form after a miss on a new form | automated tests over synthetic histories |
 | Audio chain | every line id resolves; name splicing; fallback order; stale-clip detection | automated tests + content validation |
 | Content validation | every template references existing pools, assets, lines; each topic meets its variant minimum; every glyph has a reference path and zone rule; every line has a clip or TTS text | runs on every change; the build fails on errors |
