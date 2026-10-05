@@ -4551,7 +4551,7 @@ export interface SpeakRequest {
   lineId: string;
   variant?: number;
   /** slot name → object/glyph id, a number as text, or a literal such as the child's name */
-  slots?: Record<string, string>;
+  slots?: Readonly<Record<string, string>>;
 }
 
 export interface SpokenPart {
@@ -5446,9 +5446,9 @@ The task text above is kept as written; where execution differed, the change is 
 
 **Task 11 — inspect CLI**
 - It lists the set made with no history (a goal's first set, and every set the tests make) and its usage line says so: a later set in the app also depends on the goal's history, which `replayRound` (Task 16) rebuilds from attempts.
-- Arguments: the template id, `--seed N` and `--level 1|2|3`, in any order. Anything else (`--level 4`, `--seed=7`, a misspelt flag) exits 2 with "Unexpected argument …" instead of listing a set nobody asked for, and an unknown template exits 2 like the validate CLI; the task text clamped the level.
+- Arguments: the template id, `--seed N` and `--level 1|2|3`, in any order. Anything else (`--level 4`, `--seed=7`, a misspelt flag) exits 2 with "Unexpected argument …" instead of listing a set nobody asked for, and an unknown template exits 2, as the validate CLI does for bad usage; the task text clamped the level.
 - Pairs and bins listings add a `shown:` line with the on-screen order.
-- With the Task 10 follow-ups: payload arrays, `prompt.slots` and `itemIds` are readonly in the types, matching the runtime freeze, and the freeze test checks that every object a round reaches is frozen and nothing in the pack is.
+- With the Task 10 follow-ups: every field of a round — its prompt, payload, items and bins, arrays included — is readonly in the types, matching the runtime freeze (an assignment such as `round.prompt.text = …` no longer compiles), and the freeze test checks that every object a round reaches is frozen and nothing in the pack is.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
@@ -5462,6 +5462,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 12: `Attempt.seed` is the set's seed; `AttemptDetails.round` records the round's place in the set (`Round.index`) and `payloadHash` a hash of what was on screen.
 - Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, or gives undefined when the result differs from what the attempt recorded (`roundDetails` builds both, including the payload hash): a content update or a set not played as generated gives no round rather than a different one. Tests replay every attempt of five sessions played with real history, and check that a changed pack — a new phrasing, object or scene, or one fewer option — never replays a different round (6 tests). Task 23's hand-off names `replayRound`.
 - Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
+- Task 18: `SpeakRequest.slots` is readonly, so the manager can't write into a round's slots.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 - Task 23: the README's inspect row says it prints the set made with no history.
@@ -5471,7 +5472,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Build the browser pack from an eager `import.meta.glob('/content/templates/*.json')` and take `Object.values`: Vite sorts the keys in the same code-unit order as `readRawPack`, so template order — and therefore seeded picks — match Node.
 - `give` payloads with `count` (give-count) are interchangeable copies: accept **any** `count` of them; `correctIds` is only one valid choice, for the hint and the demonstration.
 - A `RoundItem.asset` starting with `glyph:` is drawn as text (the rest of the string is the character, e.g. `glyph:10`); every other asset is a vector path.
-- Fill `{name}` and `{buddy}` from the profile (fall back to "Buddy" if no name was chosen) in captions, in bin labels (`{buddy}`) and in speech: call `AudioManager.speak` with `{ ...round.prompt.slots, name, buddy }`.
+- Fill `{name}` and `{buddy}` from the profile (fall back to "Buddy" if no name was chosen) in captions, in bin labels (`{buddy}`) and in speech: call `AudioManager.speak` with `{ ...round.prompt.slots, name, buddy }`. Fill them into new strings: a round is frozen and readonly, so never assign into `round.prompt.text` or a bin's `label`.
 - Scenario narrations end with the template prompt's question ("How does {buddy} feel?") — speak it once.
 - Never have Buddy act out an unkind choice ("laugh at them", "push to the front"); show the friend's sad face instead (§6.22). Watch playtests for answering by elimination: those two are the wrong answers in 2 of the 4 kindness scenarios.
 - The glyph font needs a capital I and a small l that look different (they appear side by side in capital/small rounds), and single-storey a and g.
