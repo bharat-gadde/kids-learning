@@ -60,6 +60,18 @@ export interface RoundOptions {
   lastVariantByLine: Readonly<Record<string, number>>;
 }
 
+/**
+ * Rounds are read-only once made: an attempt hashes the payload as generated (Task 16), so a renderer that reordered
+ * or marked it in place would make the round unreplayable. Freezing makes that mistake throw instead.
+ */
+function freezeDeep<T>(value: T): T {
+  if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) freezeDeep(v);
+  }
+  return value;
+}
+
 export function generateRound(pack: ContentPack, template: Template, opts: RoundOptions): Round {
   // what replays it: the inspect CLI's --seed and --level, and the round's #number in its listing
   const where = `${template.id} (seed ${opts.seed}, level ${opts.level}, round ${opts.index + 1})`;
@@ -77,7 +89,7 @@ export function generateRound(pack: ContentPack, template: Template, opts: Round
   if (!line) throw new GenerationError(`${where}: missing line ${lineId}`);
   const variant = pickVariant(rng, line.variants.length, opts.lastVariantByLine[lineId]);
   const text = renderCaption(pack, line.variants[variant] as string, result.slots);
-  return {
+  return freezeDeep({
     templateId: template.id,
     topicId: template.topicId,
     goalId: template.goalId,
@@ -91,7 +103,7 @@ export function generateRound(pack: ContentPack, template: Template, opts: Round
     payload: result.payload,
     correctSlot: result.correctSlot,
     itemIds: result.itemIds,
-  };
+  });
 }
 
 /** A whole set: one scene, no key item repeated while the pool lasts, balanced slots, rotating wording. */

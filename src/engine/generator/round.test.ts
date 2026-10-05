@@ -163,6 +163,18 @@ describe('generateSet', () => {
     }
   });
 
+  it('hands out read-only rounds, and leaves the pack writable', () => {
+    for (const t of pack.templates.values()) {
+      const [r] = generateSet(pack, t, { seed: 1, level: 1, history: EMPTY_HISTORY });
+      expect(Object.isFrozen(r!.payload)).toBe(true);
+    }
+    const order = generateSet(pack, pack.templates.get('good-habits.order')!, { seed: 1, level: 1, history: EMPTY_HISTORY })[0]!;
+    const p = order.payload;
+    if (p.kind !== 'order') throw new Error('expected order');
+    expect(() => p.items.reverse()).toThrow(TypeError); // a renderer copies before dragging cards about
+    expect(Object.isFrozen(pack.sequences.get(order.itemIds[0]!)!.steps)).toBe(false);
+  });
+
   it('renders the target label into the caption', () => {
     const rounds = generateSet(pack, pack.templates.get('big-small.tap')!, { seed: 4, level: 1, history: EMPTY_HISTORY });
     const r = rounds[0]!;
