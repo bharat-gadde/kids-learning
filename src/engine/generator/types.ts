@@ -23,7 +23,7 @@ export interface RoundBin {
 }
 
 export type Payload =
-  | { kind: 'choose'; options: RoundItem[]; correctIds: string[] }
+  | { kind: 'choose'; options: RoundItem[]; correctIds: string[]; stimulus?: RoundItem }
   | { kind: 'pairs'; left: RoundItem[]; right: RoundItem[]; pairs: Array<[string, string]> }
   | { kind: 'bins'; bins: RoundBin[]; items: Array<RoundItem & { binId: string }> }
   /**
