@@ -60,7 +60,13 @@ export interface Round {
   mechanic: MechanicId;
   /** mastery form key: `${mechanic}:${itemClass}` */
   form: string;
+  /**
+   * The set's seed (what generateSet was given) and this round's place in the set, from 0. With the level and the
+   * history the set was generated with, `generateSet(pack, template, { seed, level, history })[index]` is this round
+   * again (spec §5.4); seed and index together identify it.
+   */
   seed: number;
+  index: number;
   level: Level;
   sceneId: string;
   prompt: RoundPrompt;

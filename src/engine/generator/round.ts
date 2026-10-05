@@ -46,8 +46,12 @@ export function renderCaption(pack: ContentPack, text: string, slots: Readonly<R
   });
 }
 
-interface RoundOptions {
+/** One round of a set: its place in the set, and the set's bookkeeping so far (generateSet threads these). */
+export interface RoundOptions {
+  /** the set's seed; the round draws from deriveSeed(seed, `round${index}`) */
   seed: number;
+  /** position in the set, from 0 */
+  index: number;
   level: Level;
   sceneId: string;
   avoid: readonly string[];
@@ -57,19 +61,20 @@ interface RoundOptions {
 }
 
 export function generateRound(pack: ContentPack, template: Template, opts: RoundOptions): Round {
-  const rng = mulberry32(opts.seed);
+  // what replays it: the inspect CLI's --seed and --level, and the round's #number in its listing
+  const where = `${template.id} (seed ${opts.seed}, level ${opts.level}, round ${opts.index + 1})`;
+  const rng = mulberry32(deriveSeed(opts.seed, `round${opts.index}`));
   const difficulty = difficultyAt(template, opts.level);
   let result: RuleResult;
   try {
     result = buildPayload({ pack, template, rng, level: opts.level, difficulty, avoid: opts.avoid, recentSlots: opts.recentSlots, slotCounts: opts.slotCounts });
   } catch (e) {
-    // name what replays it: "no countable object available" alone does not say which template, seed or level
-    if (e instanceof GenerationError) throw new GenerationError(`${template.id} (seed ${opts.seed}, level ${opts.level}): ${e.message}`, { cause: e });
+    if (e instanceof GenerationError) throw new GenerationError(`${where}: ${e.message}`, { cause: e });
     throw e;
   }
   const lineId = result.promptLineId ?? template.flavour.promptLineId;
   const line = pack.lines.get(lineId);
-  if (!line) throw new GenerationError(`missing line ${lineId}`);
+  if (!line) throw new GenerationError(`${where}: missing line ${lineId}`);
   const variant = pickVariant(rng, line.variants.length, opts.lastVariantByLine[lineId]);
   const text = renderCaption(pack, line.variants[variant] as string, result.slots);
   return {
@@ -79,6 +84,7 @@ export function generateRound(pack: ContentPack, template: Template, opts: Round
     mechanic: template.mechanic,
     form: `${template.mechanic}:${template.itemClass}`,
     seed: opts.seed,
+    index: opts.index,
     level: opts.level,
     sceneId: opts.sceneId,
     prompt: { lineId, variant, text, slots: result.slots },
@@ -88,7 +94,7 @@ export function generateRound(pack: ContentPack, template: Template, opts: Round
   };
 }
 
-/** A whole set: one scene, no repeated key items, balanced slots, rotating wording. */
+/** A whole set: one scene, no key item repeated while the pool lasts, balanced slots, rotating wording. */
 export function generateSet(pack: ContentPack, template: Template, opts: GenerateOptions): Round[] {
   const setRng = mulberry32(deriveSeed(opts.seed, 'set'));
   const sceneId = pickScene(setRng, template.flavour.scenes, opts.history.lastSceneId);
@@ -102,7 +108,8 @@ export function generateSet(pack: ContentPack, template: Template, opts: Generat
   const rounds: Round[] = [];
   for (let i = 0; i < template.rounds; i++) {
     const round = generateRound(pack, template, {
-      seed: deriveSeed(opts.seed, `round${i}`),
+      seed: opts.seed,
+      index: i,
       level: opts.level,
       sceneId,
       avoid: [...recent, ...used],

@@ -9,8 +9,9 @@ const MAX_RUN = 2;
  * `recent` holds the earlier correct slots, oldest → newest: the previous set's last slot (if known), then this set's.
  * `counts` tallies this set's slots only, and may be sparse.
  * The same slot may hold the answer twice running but never three times: "never twice" would make "anywhere but
- * last time" pay, and with two options it is strict left-right alternation. Every slot stays within one use of the
- * least-used, rather than the least-used being forced, so the last round of a cycle is not predictable either.
+ * last time" pay, and with two options it is strict left-right alternation. The answer only goes to a slot at most one
+ * use ahead of the least-used (so no slot ends more than two ahead), rather than always to the least-used: that would
+ * decide every second two-option round, and the last round of a cycle.
  */
 export function chooseSlot(rng: Rng, optionCount: number, recent: readonly number[], counts: readonly number[]): number {
   if (optionCount <= 0) throw new Error('optionCount must be positive');
