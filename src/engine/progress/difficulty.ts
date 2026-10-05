@@ -1,3 +1,4 @@
+// src/engine/progress/difficulty.ts
 import type { Level } from '../generator/types';
 import type { SetResult } from './types';
 

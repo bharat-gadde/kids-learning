@@ -1,3 +1,4 @@
+// src/engine/progress/bridging.test.ts
 import { describe, it, expect } from 'vitest';
 import { preferredForm } from './bridging';
 import type { Attempt, Outcome } from './types';

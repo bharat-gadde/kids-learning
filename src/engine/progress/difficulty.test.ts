@@ -1,3 +1,4 @@
+// src/engine/progress/difficulty.test.ts
 import { describe, it, expect } from 'vitest';
 import { levelFor } from './difficulty';
 import type { SetResult } from './types';

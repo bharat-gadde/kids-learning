@@ -1,3 +1,4 @@
+// src/engine/progress/bridging.ts
 import type { Attempt } from './types';
 
 /**
