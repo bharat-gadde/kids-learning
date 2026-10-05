@@ -2,9 +2,19 @@
 import type { LevelId, MechanicId } from '../content/schema';
 import type { Level } from '../generator/types';
 
+/**
+ * How a round ended (spec §4.4). Every hint points at the answer, so only `correct` counts as correct: in goalStatus,
+ * formSummary, bridging and SetResult.correct.
+ * - correct: right before any hint was shown
+ * - corrected: right after a hint: the one after a first wrong try, or the wiggle after a long wait
+ * - shown: wrong twice, so Buddy showed the answer
+ */
 export type Outcome = 'correct' | 'corrected' | 'shown';
 
-/** What a mechanic records about the round it just ran; the history builders read these back. */
+/**
+ * What a mechanic records about the round it just ran; the history builders read these back.
+ * A mechanic that records more adds a named field here.
+ */
 export interface AttemptDetails {
   itemIds?: string[];
   slot?: number | null;
@@ -15,12 +25,12 @@ export interface AttemptDetails {
   round?: number;
   /** hash of the round's payload (what was on screen), so a replay is told apart from a round that only shares its target */
   payloadHash?: number;
-  [key: string]: unknown;
 }
 
 export interface Attempt {
   id?: number;
   profileId: string;
+  /** ms since the epoch, from a clock that never goes back or repeats: mastery, bridging, the picker and replay order by it */
   at: number;
   sessionIndex: number;
   templateId: string;
@@ -31,8 +41,10 @@ export interface Attempt {
   form: string;
   /** the set's seed (Round.seed); `details.round` says which of its rounds this was */
   seed: number;
+  /** the difficulty the set was made at (not the school level, Profile.level) */
   level: Level;
   outcome: Outcome;
+  /** hints shown in the round: the one after a first wrong try, and each wiggle after a wait (a repeated prompt is not one) */
   hints: number;
   durationMs: number;
   details?: AttemptDetails;
@@ -46,13 +58,16 @@ export interface SetResult {
   templateId: string;
   goalId: string;
   level: Level;
+  /** rounds whose outcome was `correct`: the "% correct" of the difficulty ramp (spec §5.4 rule 7), as mastery counts it */
   correct: number;
+  /** rounds played in the set */
   total: number;
 }
 
 export interface Profile {
   id: string;
   name: string;
+  /** the school level (spec §5.6), not a difficulty Level */
   level: LevelId;
   buddy: { colour: string; name: string; accessory: string };
   createdAt: number;
@@ -125,6 +140,10 @@ export interface WritingSample {
   at: number;
   glyph: string;
   mode: 'free' | 'faded' | 'guided';
+  /**
+   * One array per stroke, as drawn. x and y are fractions of the writing box (0–1 from its top left), so a sample draws
+   * the same on another screen, after a restore too; p is the pointer's pressure (0–1); t is ms since the first point.
+   */
   strokes: Array<Array<{ x: number; y: number; p: number; t: number }>>;
   scores: { shape: number; placement: number; size: number; strokes: number };
   outcome: 'great' | 'nearly' | 'watch';
