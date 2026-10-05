@@ -1,6 +1,6 @@
 // src/engine/content/validate.ts
 import type { ContentPack } from './load';
-import type { Difficulty, MechanicId, RuleKind, SubjectId, Template } from './schema';
+import { UI_SLOTS, type Difficulty, type MechanicId, type RuleKind, type SubjectId, type Template } from './schema';
 import { queryItems, tagOf, categoryOf } from '../generator/items';
 
 export interface Issue {
@@ -40,9 +40,7 @@ export const RULES_FOR_MECHANIC: Record<MechanicId, readonly RuleKind[]> = {
 };
 
 const BINS_REQUIRED: readonly MechanicId[] = ['sort-into-bins', 'give-to-buddy'];
-const KNOWN_SLOTS = new Set(['target', 'targets', 'n', 'name', 'buddy']);
-/** Slots the UI fills from the profile: the child's name and the name the child gave Buddy. */
-export const UI_SLOTS: ReadonlySet<string> = new Set(['name', 'buddy']);
+const KNOWN_SLOTS = new Set(['target', 'targets', 'n', ...UI_SLOTS]);
 
 export const DEFAULT_MIN_TEMPLATES: Record<SubjectId, number> = {
   literacy: 2, phonics: 2, numeracy: 2, awareness: 4, wellness: 4,

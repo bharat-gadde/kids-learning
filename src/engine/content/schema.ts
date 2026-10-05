@@ -16,6 +16,9 @@ export type MechanicId = (typeof MECHANICS)[number];
 export const LEVELS = ['nursery', 'lkg', 'ukg'] as const;
 export type LevelId = (typeof LEVELS)[number];
 
+/** Line slots the UI fills from the profile — the child's name and the name the child gave Buddy — never the generator. */
+export const UI_SLOTS: ReadonlySet<string> = new Set(['name', 'buddy']);
+
 // Every content object is strict: content ships inside the app, so an unknown key is always a typo.
 const id = z.string().min(1);
 /** Line ids — and every reference to one — become clip file names and URL path segments (gen-voice, audio/manifest). */

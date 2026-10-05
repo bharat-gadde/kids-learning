@@ -47,7 +47,7 @@
   { "id": "prompt.tap_big", "variants": ["Tap the biggest {target}", "Which {target} is the biggest? Tap it", "Find the biggest {target}"] },
   { "id": "prompt.sort_size", "variants": ["Put the big ones in the big basket and the small ones in the small basket", "Big one or small one? Sort them into the baskets"] },
   { "id": "prompt.count_match", "variants": ["Count each group and match it with the right number", "How many are there? Drag each group to its number"] },
-  { "id": "prompt.give_n", "variants": ["{buddy} is hungry! Give {buddy} {n} {targets}", "Can you give {buddy} {n} {targets}?", "{buddy} wants {n} {targets}. Drag {n} {targets} to {buddy}"] },
+  { "id": "prompt.give_n", "variants": ["{buddy} is hungry! Give {buddy} {n} {targets}", "Can you give {buddy} {n} {targets}?", "Drag {n} {targets} to {buddy}"] },
   { "id": "prompt.order_morning", "variants": ["Help {buddy} put the morning in order", "What comes first in the morning? Put the cards in order"] },
   { "id": "prompt.order_bedtime", "variants": ["Help {buddy} put bedtime in order", "What comes first at night? Put the cards in order"] },
   { "id": "prompt.tap_all_clean", "variants": ["Tap all the things that keep you neat and clean", "Which of these keep you clean? Tap them all"] },
