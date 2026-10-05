@@ -40,13 +40,15 @@ export const RULES_FOR_MECHANIC: Record<MechanicId, readonly RuleKind[]> = {
 };
 
 const BINS_REQUIRED: readonly MechanicId[] = ['sort-into-bins', 'give-to-buddy'];
-const KNOWN_SLOTS = new Set(['target', 'targets', 'n', 'name']);
+const KNOWN_SLOTS = new Set(['target', 'targets', 'n', 'name', 'buddy']);
+/** Slots the UI fills from the profile: the child's name and the name the child gave Buddy. */
+export const UI_SLOTS: ReadonlySet<string> = new Set(['name', 'buddy']);
 
 export const DEFAULT_MIN_TEMPLATES: Record<SubjectId, number> = {
   literacy: 2, phonics: 2, numeracy: 2, awareness: 4, wellness: 4,
 };
 
-/** The prompt slots the generator fills for a template (each builder's `slots` in generator/rules.ts); {name} is the UI's. */
+/** The prompt slots the generator fills for a template (each builder's `slots` in generator/rules.ts); UI_SLOTS are the UI's. */
 export function slotsFilled(t: Template): ReadonlySet<string> {
   switch (t.rule.kind) {
     case 'give-count': return new Set(['n', 'targets']);
@@ -133,7 +135,7 @@ function validateTemplate(pack: ContentPack, t: Template, err: Report, warn: Rep
   for (const id of new Set(promptLineIds)) {
     const used = new Set(pack.lines.get(id)?.variants.flatMap((v) => [...v.matchAll(/\{(\w+)\}/g)].map((m) => m[1] as string)));
     for (const slot of used) {
-      if (KNOWN_SLOTS.has(slot) && slot !== 'name' && !filled.has(slot)) {
+      if (KNOWN_SLOTS.has(slot) && !UI_SLOTS.has(slot) && !filled.has(slot)) {
         err(where, `prompt line ${id} uses {${slot}}, which ${t.mechanic} with a ${t.rule.kind} rule never fills`);
       }
     }

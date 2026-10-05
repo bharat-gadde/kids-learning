@@ -163,6 +163,11 @@ describe('validatePack: content that passes generates correct rounds', () => {
     expect(errorsOf(raw)).toEqual(['an answer is never shown beside an item spoken the same (like "B" and "b"), so only 3 options fit; level 3 needs 4']);
   });
 
+  it('leaves {name} and {buddy} to the UI', () => {
+    const raw = withTemplate({ flavour: { scenes: ['garden'], promptLineId: 'prompt.hello' } }, { lines: [...good.lines, line('prompt.hello', 'Hi {name}! Help {buddy} find the biggest {target}')] });
+    expect(errorsOf(raw)).toEqual([]);
+  });
+
   it('flags a prompt slot that the rule never fills', () => {
     const raw = withTemplate({ mechanic: 'sort-into-bins', bins: [bin('large'), bin('small')] });
     expect(errorsOf(raw)).toEqual(['prompt line prompt.tap_big uses {target}, which sort-into-bins with a size rule never fills']);
