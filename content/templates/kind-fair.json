@@ -1,0 +1,6 @@
+[
+  { "id": "kind-fair.scene", "topicId": "kind-fair", "goalId": "kind-fair.choose", "mechanic": "scene-then-choose", "itemClass": "scenes",
+    "rule": { "kind": "scenario" }, "rounds": 3,
+    "difficulty": [{ "options": 3, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 3, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["playground"], "promptLineId": "prompt.scene_kind" }, "level": "lkg" }
+]

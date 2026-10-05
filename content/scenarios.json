@@ -1,0 +1,18 @@
+[
+  { "id": "sc.ice-cream-fell", "topicId": "feelings", "narrationLineId": "sc.ice-cream-fell", "vignette": "vignettes/ice-cream-fell.svg",
+    "choices": [{ "objectId": "sad", "correct": true }, { "objectId": "happy", "correct": false }, { "objectId": "angry", "correct": false }] },
+  { "id": "sc.birthday-gift", "topicId": "feelings", "narrationLineId": "sc.birthday-gift", "vignette": "vignettes/birthday-gift.svg",
+    "choices": [{ "objectId": "happy", "correct": true }, { "objectId": "sad", "correct": false }, { "objectId": "scared", "correct": false }] },
+  { "id": "sc.loud-thunder", "topicId": "feelings", "narrationLineId": "sc.loud-thunder", "vignette": "vignettes/loud-thunder.svg",
+    "choices": [{ "objectId": "scared", "correct": true }, { "objectId": "happy", "correct": false }, { "objectId": "sleepy", "correct": false }] },
+  { "id": "sc.toy-broken", "topicId": "feelings", "narrationLineId": "sc.toy-broken", "vignette": "vignettes/toy-broken.svg",
+    "choices": [{ "objectId": "angry", "correct": true }, { "objectId": "sad", "correct": true }, { "objectId": "happy", "correct": false }] },
+  { "id": "sc.friend-crying", "topicId": "kind-fair", "narrationLineId": "sc.friend-crying", "vignette": "vignettes/friend-crying.svg",
+    "choices": [{ "objectId": "hug", "correct": true, "reactionLineId": "react.kind" }, { "objectId": "laugh", "correct": false, "reactionLineId": "react.unkind" }, { "objectId": "walk-away", "correct": false, "reactionLineId": "react.unkind" }] },
+  { "id": "sc.one-biscuit", "topicId": "kind-fair", "narrationLineId": "sc.one-biscuit", "vignette": "vignettes/one-biscuit.svg",
+    "choices": [{ "objectId": "share", "correct": true, "reactionLineId": "react.kind" }, { "objectId": "eat-alone", "correct": false, "reactionLineId": "react.unkind" }] },
+  { "id": "sc.slide-queue", "topicId": "kind-fair", "narrationLineId": "sc.slide-queue", "vignette": "vignettes/slide-queue.svg",
+    "choices": [{ "objectId": "wait-turn", "correct": true, "reactionLineId": "react.kind" }, { "objectId": "push", "correct": false, "reactionLineId": "react.unkind" }] },
+  { "id": "sc.friend-fell", "topicId": "kind-fair", "narrationLineId": "sc.friend-fell", "vignette": "vignettes/friend-fell.svg",
+    "choices": [{ "objectId": "help-up", "correct": true, "reactionLineId": "react.kind" }, { "objectId": "laugh", "correct": false, "reactionLineId": "react.unkind" }, { "objectId": "walk-away", "correct": false, "reactionLineId": "react.unkind" }] }
+]

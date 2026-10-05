@@ -1,0 +1,6 @@
+[
+  { "id": "cvc.hear", "topicId": "cvc", "goalId": "cvc.hear", "mechanic": "tap-the-one", "itemClass": "cvc-pictures",
+    "query": { "pool": "objects", "tags": { "cvc": true } }, "rule": { "kind": "named" }, "rounds": 6,
+    "difficulty": [{ "options": 2, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 4, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["farm", "bedroom", "kitchen"], "promptLineId": "prompt.find_word" }, "level": "lkg" }
+]

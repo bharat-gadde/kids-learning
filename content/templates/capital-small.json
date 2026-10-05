@@ -1,0 +1,6 @@
+[
+  { "id": "capital-small.match", "topicId": "capital-small", "goalId": "capital-small.match", "mechanic": "drag-to-match", "itemClass": "letters",
+    "query": { "pool": "glyphs", "glyph": { "kind": "letter" } }, "rule": { "kind": "pair", "by": "caseMate" }, "rounds": 4,
+    "difficulty": [{ "options": 2, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 4, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["classroom"], "promptLineId": "prompt.case_match" }, "level": "lkg" }
+]

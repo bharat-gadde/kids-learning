@@ -1,0 +1,10 @@
+[
+  { "id": "garden", "asset": "scenes/garden.svg", "theme": "garden" },
+  { "id": "kitchen", "asset": "scenes/kitchen.svg", "theme": "kitchen" },
+  { "id": "playground", "asset": "scenes/playground.svg", "theme": "playground" },
+  { "id": "classroom", "asset": "scenes/classroom.svg", "theme": "classroom" },
+  { "id": "bathroom", "asset": "scenes/bathroom.svg", "theme": "bathroom" },
+  { "id": "bedroom", "asset": "scenes/bedroom.svg", "theme": "bedroom" },
+  { "id": "road", "asset": "scenes/road.svg", "theme": "road" },
+  { "id": "farm", "asset": "scenes/farm.svg", "theme": "farm" }
+]

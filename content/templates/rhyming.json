@@ -1,0 +1,6 @@
+[
+  { "id": "rhyming.match", "topicId": "rhyming", "goalId": "rhyming.match", "mechanic": "drag-to-match", "itemClass": "rhymes",
+    "query": { "pool": "objects", "hasTags": ["rhymeGroup"] }, "rule": { "kind": "pair", "by": "rhymeGroup" }, "rounds": 4,
+    "difficulty": [{ "options": 2, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 4, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["garden", "farm"], "promptLineId": "prompt.rhyme_match" }, "level": "lkg" }
+]

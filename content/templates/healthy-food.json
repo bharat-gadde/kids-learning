@@ -1,0 +1,13 @@
+[
+  { "id": "healthy-food.sort", "topicId": "healthy-food", "goalId": "healthy-food.sort", "mechanic": "sort-into-bins", "itemClass": "food",
+    "query": { "pool": "objects", "category": ["fruit", "vegetable"] }, "rule": { "kind": "category", "values": ["fruit", "vegetable"] }, "rounds": 3,
+    "difficulty": [{ "options": 4, "distractorSimilarity": "low" }, { "options": 6, "distractorSimilarity": "medium" }, { "options": 8, "distractorSimilarity": "high" }],
+    "bins": [{ "id": "fruit", "label": "fruit basket", "lineId": "bin.fruit", "asset": "bins/basket-fruit.svg", "match": "fruit" },
+             { "id": "vegetable", "label": "vegetable basket", "lineId": "bin.vegetable", "asset": "bins/basket-vegetable.svg", "match": "vegetable" }],
+    "flavour": { "scenes": ["kitchen", "farm"], "promptLineId": "prompt.sort_food" }, "level": "lkg" },
+  { "id": "healthy-food.plate", "topicId": "healthy-food", "goalId": "healthy-food.choose", "mechanic": "give-to-buddy", "itemClass": "food",
+    "query": { "pool": "objects", "category": ["fruit", "vegetable", "meal", "junk"] }, "rule": { "kind": "tag", "tag": "healthy", "value": true }, "rounds": 4,
+    "difficulty": [{ "options": 4, "correctCount": 2, "distractorSimilarity": "low" }, { "options": 6, "correctCount": 3, "distractorSimilarity": "medium" }, { "options": 8, "correctCount": 4, "distractorSimilarity": "high" }],
+    "bins": [{ "id": "plate", "label": "Buddy's plate", "lineId": "bin.plate", "asset": "bins/plate.svg", "match": true }],
+    "flavour": { "scenes": ["kitchen"], "promptLineId": "prompt.healthy_plate" }, "level": "lkg" }
+]

@@ -1,0 +1,10 @@
+[
+  { "id": "feelings.tap", "topicId": "feelings", "goalId": "feelings.name", "mechanic": "tap-the-one", "itemClass": "faces",
+    "query": { "pool": "objects", "category": ["feeling"] }, "rule": { "kind": "named" }, "rounds": 6,
+    "difficulty": [{ "options": 2, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 4, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["playground", "classroom"], "promptLineId": "prompt.tap_feeling" }, "level": "lkg" },
+  { "id": "feelings.scene", "topicId": "feelings", "goalId": "feelings.read", "mechanic": "scene-then-choose", "itemClass": "scenes",
+    "rule": { "kind": "scenario" }, "rounds": 3,
+    "difficulty": [{ "options": 3, "distractorSimilarity": "low" }, { "options": 3, "distractorSimilarity": "medium" }, { "options": 3, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["playground"], "promptLineId": "prompt.scene_feeling" }, "level": "lkg" }
+]

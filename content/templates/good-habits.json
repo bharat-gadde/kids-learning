@@ -1,0 +1,10 @@
+[
+  { "id": "good-habits.order", "topicId": "good-habits", "goalId": "good-habits.routine", "mechanic": "sequence", "itemClass": "routine",
+    "rule": { "kind": "sequence" }, "rounds": 2,
+    "difficulty": [{ "options": 3, "distractorSimilarity": "low" }, { "options": 4, "distractorSimilarity": "medium" }, { "options": 5, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["bedroom", "bathroom"], "promptLineId": "prompt.order_morning" }, "level": "lkg" },
+  { "id": "good-habits.clean", "topicId": "good-habits", "goalId": "good-habits.clean", "mechanic": "tap-all-that-match", "itemClass": "hygiene",
+    "query": { "pool": "objects", "category": ["hygiene", "toy", "stationery"] }, "rule": { "kind": "tag", "tag": "neatAndClean", "value": true }, "rounds": 4,
+    "difficulty": [{ "options": 4, "correctCount": 2, "distractorSimilarity": "low" }, { "options": 6, "correctCount": 3, "distractorSimilarity": "medium" }, { "options": 8, "correctCount": 4, "distractorSimilarity": "high" }],
+    "flavour": { "scenes": ["bathroom", "bedroom"], "promptLineId": "prompt.tap_all_clean" }, "level": "lkg" }
+]
