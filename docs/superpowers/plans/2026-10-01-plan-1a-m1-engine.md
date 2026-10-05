@@ -3135,6 +3135,8 @@ export interface AttemptDetails {
   lineVariant?: number;
   /** the round's place in its set (Round.index); with Attempt.seed it names the round to replay */
   round?: number;
+  /** hash of the round's payload (what was on screen), so a replay is told apart from a round that only shares its target */
+  payloadHash?: number;
   [key: string]: unknown;
 }
 
@@ -3959,6 +3961,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readPack } from '../content/readPackFromDisk';
 import { generateSet } from '../generator/round';
 import { EMPTY_HISTORY, type Round } from '../generator/types';
+import { hashString } from '../rng';
 import { attemptsForGoal, attemptsForProfile, createDb, createProfile, recordAttempt, type BuddyDB } from './db';
 import { attemptFromRound, buildGeneratorHistory, buildPickerHistory, replayRound } from './history';
 
@@ -3976,7 +3979,10 @@ describe('attemptFromRound', () => {
     const round = generateSet(pack, pack.templates.get('big-small.tap')!, { seed: 5, level: 2, history: EMPTY_HISTORY })[2]!;
     const a = attemptFromRound(round, { profileId, sessionIndex: 3, at: 123, outcome: 'correct', hints: 0, durationMs: 800 });
     expect(a).toMatchObject({ profileId, sessionIndex: 3, at: 123, templateId: 'big-small.tap', topicId: 'big-small', goalId: 'big-small.identify', mechanic: 'tap-the-one', form: 'tap-the-one:objects', seed: 5, level: 2, outcome: 'correct' });
-    expect(a.details).toEqual({ itemIds: round.itemIds, slot: round.correctSlot, sceneId: round.sceneId, lineId: round.prompt.lineId, lineVariant: round.prompt.variant, round: 2 });
+    expect(a.details).toEqual({
+      itemIds: round.itemIds, slot: round.correctSlot, sceneId: round.sceneId, lineId: round.prompt.lineId, lineVariant: round.prompt.variant,
+      round: 2, payloadHash: hashString(JSON.stringify(round.payload)),
+    });
   });
 });
 
@@ -3999,6 +4005,33 @@ describe('replayRound', () => {
     expect(attempts.map((a) => replayRound(pack, attempts, a))).toEqual(played);
     const everything = await attemptsForProfile(db, profileId); // a debug view may hand over every attempt
     expect(attempts.map((a) => replayRound(pack, everything, a))).toEqual(played);
+  });
+
+  it('gives no round, never a different one, once the pack has changed', async () => {
+    const template = pack.templates.get('big-small.tap')!;
+    const played: Round[] = [];
+    let at = 0;
+    for (let session = 1; session <= 3; session++) {
+      const rounds = generateSet(pack, template, { seed: 2000 + session, level: 2, history: await buildGeneratorHistory(db, profileId, template.goalId, session) });
+      for (const r of rounds) await recordAttempt(db, attemptFromRound(r, { profileId, sessionIndex: session, at: ++at, outcome: 'correct', hints: 0, durationMs: 1 }));
+      played.push(...rounds);
+    }
+    const attempts = await attemptsForGoal(db, profileId, template.goalId);
+    const line = pack.lines.get('prompt.tap_big')!;
+    const updates = [ // a phrasing, an object and a scene added: each changes some recorded rounds and not others
+      { ...pack, lines: new Map(pack.lines).set(line.id, { ...line, variants: [...line.variants, 'Show me the biggest {target}'] }) },
+      { ...pack, objects: new Map(pack.objects).set('kettle', { id: 'kettle', name: 'kettle', lineId: 'obj.kettle', asset: 'objects/kettle.svg', category: 'thing', tags: { sizePair: true } }) },
+      { ...pack, templates: new Map(pack.templates).set(template.id, { ...template, flavour: { ...template.flavour, scenes: [...template.flavour.scenes, 'kitchen'] } }) },
+    ];
+    for (const updated of updates) {
+      const replays = attempts.map((a) => replayRound(updated, attempts, a));
+      expect(replays).toContain(undefined);
+      replays.forEach((r, i) => r && expect(r).toEqual(played[i]));
+    }
+    // one fewer option at the level played: target, slot, scene and wording can all still match, the options never do
+    const [d1, d2, d3] = template.difficulty;
+    const fewer = { ...pack, templates: new Map(pack.templates).set(template.id, { ...template, difficulty: [d1, { ...d2, options: d2.options - 1 }, d3] as typeof template.difficulty }) };
+    expect(attempts.map((a) => replayRound(fewer, attempts, a)).filter(Boolean)).toEqual([]);
   });
 });
 
@@ -4057,9 +4090,23 @@ Expected: FAIL — `Cannot find module './history'`.
 import type { ContentPack } from '../content/load';
 import { generateSet } from '../generator/round';
 import type { GeneratorHistory, Round } from '../generator/types';
+import { hashString } from '../rng';
 import { attemptsForGoal, attemptsForProfile, type BuddyDB } from './db';
 import type { PickerHistory } from './picker';
-import type { Attempt, Outcome } from './types';
+import type { Attempt, AttemptDetails, Outcome } from './types';
+
+/** What a round records about itself in its attempt (a mechanic may add details of its own beside these). */
+function roundDetails(round: Round): AttemptDetails {
+  return {
+    itemIds: round.itemIds,
+    slot: round.correctSlot,
+    sceneId: round.sceneId,
+    lineId: round.prompt.lineId,
+    lineVariant: round.prompt.variant,
+    round: round.index,
+    payloadHash: hashString(JSON.stringify(round.payload)), // the options and their places, which the rest leaves out
+  };
+}
 
 /** Build the attempt record for a round the child just finished. */
 export function attemptFromRound(
@@ -4080,14 +4127,7 @@ export function attemptFromRound(
     outcome: result.outcome,
     hints: result.hints,
     durationMs: result.durationMs,
-    details: {
-      itemIds: round.itemIds,
-      slot: round.correctSlot,
-      sceneId: round.sceneId,
-      lineId: round.prompt.lineId,
-      lineVariant: round.prompt.variant,
-      round: round.index,
-    },
+    details: roundDetails(round),
   };
 }
 
@@ -4118,16 +4158,19 @@ export async function buildGeneratorHistory(db: BuddyDB, profileId: string, goal
 
 /**
  * Spec §5.4 / §14: the round an attempt recorded, generated again — from its set's seed and level, and the history
- * rebuilt from the goal's attempts before that set's first one. Exact while the content pack is unchanged.
+ * rebuilt from the goal's attempts before that set's first one. Undefined unless it matches what the attempt recorded:
+ * after a content update, or for a set not played as generateSet made it, there is no round rather than a different one.
  */
 export function replayRound(pack: ContentPack, goalAttempts: readonly Attempt[], attempt: Attempt): Round | undefined {
   const template = pack.templates.get(attempt.templateId);
-  const index = attempt.details?.round;
-  if (!template || index === undefined) return undefined;
+  const recorded = attempt.details;
+  if (!template || recorded?.round === undefined) return undefined;
   const sameSet = goalAttempts.filter((a) => a.templateId === attempt.templateId && a.seed === attempt.seed && a.sessionIndex === attempt.sessionIndex);
   const start = Math.min(attempt.at, ...sameSet.map((a) => a.at));
   const history = generatorHistoryFrom(goalAttempts.filter((a) => a.goalId === attempt.goalId && a.at < start), attempt.sessionIndex);
-  return generateSet(pack, template, { seed: attempt.seed, level: attempt.level, history })[index];
+  const round = generateSet(pack, template, { seed: attempt.seed, level: attempt.level, history })[recorded.round];
+  const same = round !== undefined && Object.entries(roundDetails(round)).every(([key, value]) => JSON.stringify(value) === JSON.stringify(recorded[key]));
+  return same ? round : undefined;
 }
 
 /** What the picker needs to choose the next template and suggest a topic. */
@@ -4155,7 +4198,7 @@ export async function buildPickerHistory(db: BuddyDB, profileId: string, session
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/progress/history.test.ts`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -5313,7 +5356,7 @@ Plan 1B (M1 playable) consumes these interfaces unchanged:
 
 - `readPack` is Node-only; 1B adds a Vite JSON loader that produces the same `RawPack` shape and calls `loadPack`.
 - `generateSet(pack, template, { seed, level, history })` → `Round[]`; mechanics render `round.payload` by `kind` and record results with `attemptFromRound`.
-- `replayRound(pack, await attemptsForGoal(db, profileId, goalId), attempt)` regenerates a recorded round (spec §14 debug replay).
+- `replayRound(pack, await attemptsForGoal(db, profileId, goalId), attempt)` regenerates a recorded round (spec §14 debug replay), or gives undefined once it no longer can — after a content update, say.
 - `pickTemplate` / `suggestTopic` with `buildPickerHistory`; `levelFor(setResultsForTemplate(...))` chooses the level; `buildGeneratorHistory` feeds the generator.
 - `AudioManager` with `ManifestClipSource(manifest, '/audio/lines')`, `new HowlerClipPlayer(Howl)` and `createWebSpeechTts()`; the 🔊 button calls `replay()`.
 - `BuddyDB` tables for routine events, check-ins, stickers, unlocks, writing samples and paper results are already declared; 1B adds their repository functions as it needs them.
@@ -5392,12 +5435,13 @@ The task text above is kept as written; where execution differed, the change is 
 - count + tap-the-one (no M1 template yet; DPS 8 "count and circle the number" can be added as JSON alone): the distractor numerals give the answer a random rank — before, at medium similarity it was always the middle numeral — and low-similarity distractors stay inside the level's range. Its prompt slots are `{targets}` only, since `{n}` would speak the answer; Task 6's `slotsFilled` changed with it (one more validator test).
 - `correctOrder` is a copy of the sequence's steps (a renderer reordering it reordered the loaded pack); the size tap path shuffles once; two `as Bin` casts are gone.
 - Validator: a give-count or count + tap level with fewer than 3 numbers is a warning — counts change between rounds, so 1 number repeats and 2 can only alternate (one more test).
+- 18 tests instead of 13: count-tap rank and slots, counting passes, `correctOrder` identity, the scenario slot rule, and a sweep that builds every M1 template at every level over 40 seeds, twice, and checks each payload's consistency.
 
 **Task 10 — rounds and sets**
 - Replay (spec §5.4, §14): `Round.seed` is the set's seed and `Round.index` the round's place in the set; the round still draws from `deriveSeed(seed, 'round<index>')`, so every generated set is unchanged. Before, a stored round seed replayed only first rounds (0.8% of later ones), and nothing stored the set seed. Errors, including a missing prompt line, name the template, set seed, level and round — the inspect CLI's `--seed` and the listing's `#N`. `RoundOptions` is exported.
 - The slot-balance rule is described as what it is, a rule applied at each pick (spec §5.4 rule 2, §14, `slots.ts`): the answer only goes to a slot at most one use ahead of the least-used. Literal "always the least-used" would be easier to learn: a child following it would score 75 / 61 / 44% against 65 / 42 / 31% now (chance 50 / 33 / 25%).
+- `slots.test.ts` test titles use the same pick-time wording.
 - 15 tests instead of 11. A mutation run showed the old suite passing with the within-set wording update deleted, the sequence prompt override dropped, `slotCounts` emptied or history ignored; new tests pin error context, the slot-balance rule at every pick, fresh key items before recent ones, sequence prompt lines, and scene and wording avoidance over every template and round.
-- 18 tests instead of 13: count-tap rank and slots, counting passes, `correctOrder` identity, the scenario slot rule, and a sweep that builds every M1 template at every level over 40 seeds, twice, and checks each payload's consistency.
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
@@ -5408,8 +5452,8 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 10: `generateRound` re-throws a builder's `GenerationError` prefixed with the template, seed and level that reproduce it, and a test checks the slot rule on scene-then-choose sets (11 tests).
 - Task 10: `renderCaption` leaves UI_SLOTS (`{name}`, `{buddy}`, from `content/schema.ts`) to the UI, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
 - Task 12: `Profile.level` is typed `LevelId`.
-- Task 12: `Attempt.seed` is the set's seed, and `AttemptDetails.round` records the round's place in the set (`Round.index`).
-- Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, and a test replays every attempt of five sessions played with real history (5 tests). Task 23's hand-off names `replayRound`.
+- Task 12: `Attempt.seed` is the set's seed; `AttemptDetails.round` records the round's place in the set (`Round.index`) and `payloadHash` a hash of what was on screen.
+- Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, or gives undefined when the result differs from what the attempt recorded (`roundDetails` builds both, including the payload hash): a content update or a set not played as generated gives no round rather than a different one. Tests replay every attempt of five sessions played with real history, and check that a changed pack — a new phrasing, object or scene, or one fewer option — never replays a different round (6 tests). Task 23's hand-off names `replayRound`.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 
@@ -5426,5 +5470,6 @@ The task text above is kept as written; where execution differed, the change is 
 - Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
-- Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it.
+- Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
+- Take `at` from a clock that never goes back or repeats (`Math.max(Date.now(), lastAt + 1)`): mastery, bridging, the picker, `levelFor` and `replayRound` all order attempts and set results by `at`, and one backward step made every round of a goal replay differently.
 - When writing new lines, keep slots mid-sentence: a spoken question that ends in a spliced slot ("Where is the {target}?") loses its rising intonation.
