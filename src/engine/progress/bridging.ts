@@ -2,8 +2,9 @@
 import type { Attempt } from './types';
 
 /**
- * Spec §5.5 bridging. After a miss in a form that has never succeeded, return the most recently
- * successful *other* form so the next round can bridge back to it. Otherwise null.
+ * Spec §5.5 bridging, between sets: a set plays one template, so one form. Takes one goal's attempts. When the last
+ * ended `shown` or `corrected` in a form with no earlier `correct`, returns the form of the most recent `correct`
+ * attempt in another form, so the goal's next set can bridge back to it. Otherwise null.
  */
 export function preferredForm(attempts: readonly Attempt[]): string | null {
   const sorted = [...attempts].sort((a, b) => a.at - b.at);

@@ -50,6 +50,7 @@ export interface Attempt {
   details?: AttemptDetails;
 }
 
+/** A finished set: its last round ended. A set left early keeps its attempts but has no SetResult (see levelFor). */
 export interface SetResult {
   id?: number;
   profileId: string;
