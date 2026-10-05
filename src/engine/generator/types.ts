@@ -23,22 +23,22 @@ export interface RoundBin {
 }
 
 export type Payload =
-  | { kind: 'choose'; options: RoundItem[]; correctIds: string[]; stimulus?: RoundItem }
-  | { kind: 'pairs'; left: RoundItem[]; right: RoundItem[]; pairs: Array<[string, string]> }
-  | { kind: 'bins'; bins: RoundBin[]; items: Array<RoundItem & { binId: string }> }
+  | { kind: 'choose'; options: readonly RoundItem[]; correctIds: readonly string[]; stimulus?: RoundItem }
+  | { kind: 'pairs'; left: readonly RoundItem[]; right: readonly RoundItem[]; pairs: ReadonlyArray<readonly [string, string]> }
+  | { kind: 'bins'; bins: readonly RoundBin[]; items: ReadonlyArray<RoundItem & { binId: string }> }
   /**
    * Drag items onto `target`. Without `count`, the `correctIds` items are the ones to give.
    * With `count` (give-count), the items are interchangeable copies: any `count` of them is right, and
    * `correctIds` is just one valid choice (for the hint and the demonstration).
    */
-  | { kind: 'give'; target: RoundBin; items: RoundItem[]; correctIds: string[]; count?: number }
-  | { kind: 'order'; items: RoundItem[]; correctOrder: string[] }
+  | { kind: 'give'; target: RoundBin; items: readonly RoundItem[]; correctIds: readonly string[]; count?: number }
+  | { kind: 'order'; items: readonly RoundItem[]; correctOrder: readonly string[] }
   | {
       kind: 'scenario';
       scenarioId: string;
       vignette: string;
       narrationLineId: string;
-      choices: Array<RoundItem & { correct: boolean; reactionLineId?: string }>;
+      choices: ReadonlyArray<RoundItem & { correct: boolean; reactionLineId?: string }>;
     };
 
 /** Difficulty level 1–3, the index into `Template.difficulty` (not the school level `LevelId`). */
@@ -50,7 +50,7 @@ export interface RoundPrompt {
   /** caption text with slots rendered as labels */
   text: string;
   /** slot name → item id or literal (the audio manager resolves ids to clips) */
-  slots: Record<string, string>;
+  slots: Readonly<Record<string, string>>;
 }
 
 export interface Round {
@@ -81,7 +81,7 @@ export interface Round {
    * count rules the object itself, not its copies or the numeral, plus `n:<value>` for each count asked about),
    * the rhyme group or pair key for pair rules, and the sequence or scenario id for those rules.
    */
-  itemIds: string[];
+  itemIds: readonly string[];
 }
 
 /** Read-only: one history (and the shared EMPTY_HISTORY) can be handed to many generateSet calls. */

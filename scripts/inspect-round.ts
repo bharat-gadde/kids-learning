@@ -1,22 +1,35 @@
 // scripts/inspect-round.ts
 // Usage: npm run inspect -- <templateId> [--seed 42] [--level 2]
+// Lists the set generateSet makes with no history: a goal's first set, and every set the tests make. A later set in
+// the app also depends on the goal's history, so its seed and level alone do not list it (replayRound rebuilds that).
 import { readPack } from '../src/engine/content/readPackFromDisk';
 import { generateSet } from '../src/engine/generator/round';
 import { EMPTY_HISTORY, type Level, type Payload, type RoundItem } from '../src/engine/generator/types';
 
+const USAGE = 'Usage: npm run inspect -- <templateId> [--seed N] [--level 1|2|3]   (the set made with no history)';
+
+// The template id and two flags, in any order; anything else stops rather than listing a set nobody asked for.
 const args = process.argv.slice(2);
-const templateId = args.find((a) => !a.startsWith('--'));
-const flag = (name: string, fallback: number) => {
-  const i = args.indexOf(`--${name}`);
-  return i >= 0 && args[i + 1] ? Number(args[i + 1]) : fallback;
-};
-const seed = flag('seed', Date.now() % 100000);
-const level = Math.min(3, Math.max(1, flag('level', 1))) as Level;
+let templateId: string | undefined;
+let seed = Date.now() % 100000;
+let level: Level = 1;
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i]!;
+  const value = args[i + 1] ?? '';
+  if (arg === '--seed' && /^-?\d+$/.test(value)) seed = Number(args[++i]);
+  else if (arg === '--level' && ['1', '2', '3'].includes(value)) level = Number(args[++i]) as Level;
+  else if (!arg.startsWith('-') && templateId === undefined) templateId = arg;
+  else {
+    console.error(`Unexpected argument ${arg}\n${USAGE}`);
+    process.exit(2);
+  }
+}
 
 const pack = readPack();
-if (!templateId || !pack.templates.has(templateId)) {
-  console.error(`Usage: npm run inspect -- <templateId> [--seed N] [--level 1|2|3]\nTemplates:\n  ${[...pack.templates.keys()].join('\n  ')}`);
-  process.exit(1);
+const template = templateId === undefined ? undefined : pack.templates.get(templateId);
+if (!template) {
+  console.error(`${USAGE}\nTemplates:\n  ${[...pack.templates.keys()].join('\n  ')}`);
+  process.exit(2);
 }
 
 const label = (i: RoundItem) => `${i.label}${i.scale !== undefined ? ` (×${i.scale})` : ''}${i.count !== undefined ? ` [${i.count}]` : ''}`;
@@ -26,9 +39,9 @@ function describe(p: Payload): string[] {
     case 'choose':
       return [...(p.stimulus ? [`  stimulus: ${label(p.stimulus)}`] : []), ...p.options.map((o) => `  ${p.correctIds.includes(o.id) ? '✓' : ' '} ${label(o)}`)];
     case 'pairs':
-      return p.pairs.map(([a, b]) => `  ${p.left.find((l) => l.id === a)?.label} ↔ ${p.right.find((r) => r.id === b)?.label}`);
+      return [`  shown: ${p.left.map((i) => i.label).join(' · ')}  |  ${p.right.map((i) => i.label).join(' · ')}`, ...p.pairs.map(([a, b]) => `  ${p.left.find((l) => l.id === a)?.label} ↔ ${p.right.find((r) => r.id === b)?.label}`)];
     case 'bins':
-      return p.bins.map((b) => `  ${b.label}: ${p.items.filter((i) => i.binId === b.id).map(label).join(', ')}`);
+      return [`  shown: ${p.items.map(label).join(' · ')}`, ...p.bins.map((b) => `  ${b.label}: ${p.items.filter((i) => i.binId === b.id).map(label).join(', ')}`)];
     case 'give':
       return [`  → ${p.target.label}${p.count !== undefined ? ` (give ${p.count})` : ''}`, ...p.items.map((i) => `  ${p.correctIds.includes(i.id) ? '✓' : ' '} ${label(i)}`)];
     case 'order':
@@ -38,7 +51,7 @@ function describe(p: Payload): string[] {
   }
 }
 
-const rounds = generateSet(pack, pack.templates.get(templateId)!, { seed, level, history: EMPTY_HISTORY });
+const rounds = generateSet(pack, template, { seed, level, history: EMPTY_HISTORY });
 console.log(`${templateId} · seed ${seed} · level ${level} · scene ${rounds[0]?.sceneId}\n`);
 rounds.forEach((r, i) => {
   console.log(`#${i + 1} "${r.prompt.text}"  (${r.prompt.lineId} v${r.prompt.variant}${r.correctSlot !== null ? `, slot ${r.correctSlot}` : ''})`);

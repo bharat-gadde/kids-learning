@@ -5,7 +5,7 @@ import { readPack } from '../content/readPackFromDisk';
 import { slotsFilled } from '../content/validate';
 import { generateSet, renderCaption, pickVariant, pickScene } from './round';
 import { GenerationError } from './rules';
-import { EMPTY_HISTORY, type Level, type Payload } from './types';
+import { EMPTY_HISTORY, type Level, type Payload, type RoundItem } from './types';
 import { mulberry32 } from '../rng';
 
 const pack = readPack();
@@ -163,16 +163,24 @@ describe('generateSet', () => {
     }
   });
 
-  it('hands out read-only rounds, and leaves the pack writable', () => {
+  it('hands out read-only rounds, and freezes nothing the pack holds', () => {
+    // every object a value reaches, through Maps and Sets too
+    const reachable = (v: unknown, out = new Set<object>()): Set<object> => {
+      if (typeof v !== 'object' || v === null || out.has(v)) return out;
+      out.add(v);
+      for (const c of v instanceof Map || v instanceof Set ? v.values() : Object.values(v)) reachable(c, out);
+      return out;
+    };
     for (const t of pack.templates.values()) {
-      const [r] = generateSet(pack, t, { seed: 1, level: 1, history: EMPTY_HISTORY });
-      expect(Object.isFrozen(r!.payload)).toBe(true);
+      for (const level of [1, 2, 3] as const) {
+        for (const r of generateSet(pack, t, { seed: 1, level, history: EMPTY_HISTORY })) expect([...reachable(r)].every((o) => Object.isFrozen(o))).toBe(true);
+      }
     }
+    expect([...reachable(pack)].filter((o) => Object.isFrozen(o))).toEqual([]); // so no round shares an object with the pack
     const order = generateSet(pack, pack.templates.get('good-habits.order')!, { seed: 1, level: 1, history: EMPTY_HISTORY })[0]!;
     const p = order.payload;
     if (p.kind !== 'order') throw new Error('expected order');
-    expect(() => p.items.reverse()).toThrow(TypeError); // a renderer copies before dragging cards about
-    expect(Object.isFrozen(pack.sequences.get(order.itemIds[0]!)!.steps)).toBe(false);
+    expect(() => (p.items as RoundItem[]).reverse()).toThrow(TypeError); // tsc refuses this; the freeze stops a cast
   });
 
   it('renders the target label into the caption', () => {

@@ -61,8 +61,8 @@ export interface RoundOptions {
 }
 
 /**
- * Rounds are read-only once made: an attempt hashes the payload as generated (Task 16), so a renderer that reordered
- * or marked it in place would make the round unreplayable. Freezing makes that mistake throw instead.
+ * Rounds are read-only once made: attemptFromRound hashes the payload as generated, so a renderer that reordered or
+ * marked it in place would make the round unreplayable. Freezing makes that mistake throw instead.
  */
 function freezeDeep<T>(value: T): T {
   if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
@@ -73,7 +73,8 @@ function freezeDeep<T>(value: T): T {
 }
 
 export function generateRound(pack: ContentPack, template: Template, opts: RoundOptions): Round {
-  // what replays it: the inspect CLI's --seed and --level, and the round's #number in its listing
+  // what replays it, for a set made with no history (a goal's first, and the tests'): the inspect CLI's --seed and
+  // --level and the round's #number in its listing; a later set also needs the history it was made with
   const where = `${template.id} (seed ${opts.seed}, level ${opts.level}, round ${opts.index + 1})`;
   const rng = mulberry32(deriveSeed(opts.seed, `round${opts.index}`));
   const difficulty = difficultyAt(template, opts.level);
