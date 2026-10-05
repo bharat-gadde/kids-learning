@@ -33,7 +33,7 @@
 ## 2. Design principles
 
 1. **Habits are lived, not quizzed.** Brushing, dressing, eating well, tidying, saying thank you and naming feelings happen *with Buddy at Home* as things the child does, every visit.
-2. **No two rounds alike.** Items, positions, counts, wording, scenes and even the mechanic change between rounds. The correct answer is never in the same slot twice in a row. Topics are interleaved, never drilled.
+2. **No two rounds alike.** Items, positions, counts, wording, scenes and even the mechanic change between rounds. The correct answer never sits in the same slot three times running, and no slot is favoured across a set: a child can't win by position ("never twice" was dropped on 2026-10-05 — with two options it is strict alternation, which a child can learn). Topics are interleaved, never drilled.
 3. **Mastery means generalisation.** A goal is mastered only when the child succeeds across several *different* forms. A miss on a new form bridges back to a familiar one rather than repeating the failed one.
 4. **Spoken, never read.** Every prompt and every piece of feedback is voiced. Text is shown only as a short caption with a 🔊 button beside it.
 5. **No fail state.** Wrong → hint. Wrong again → Buddy shows the answer and moves on. Never a sad face for a wrong answer.
@@ -210,7 +210,7 @@ Every template is one data file with these fields:
 The generator is deterministic from `(template, seed, profile history)` so any round can be replayed.
 
 1. **Sampling without recent repeats:** items not used for this goal in the last 3 sessions are preferred; distractors likewise.
-2. **Position shuffle:** the correct answer's slot differs from the previous round's slot; across a set, slots are balanced.
+2. **Position shuffle:** the correct answer's slot may repeat once but never three times running; across a set, every slot stays within one use of the least-used.
 3. **Wording variants:** each line has 2–4 phrasings sharing the key word ("Tap the biggest car" / "Which car is the biggest?" / "Find the biggest car").
 4. **Scene variants:** the background changes every set.
 5. **Mechanic rotation:** when a topic is played on consecutive days, a different template (mechanic) is chosen than last time, if the topic has more than one.

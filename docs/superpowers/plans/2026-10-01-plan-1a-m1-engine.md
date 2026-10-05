@@ -2232,7 +2232,7 @@ const pack = readPack();
 
 function ctx(templateId: string, seed = 1, level: Level = 1, avoid: string[] = []): RuleContext {
   const template = pack.templates.get(templateId)!;
-  return { pack, template, rng: mulberry32(seed), level, difficulty: difficultyAt(template, level), avoid, lastSlot: null, slotCounts: [] };
+  return { pack, template, rng: mulberry32(seed), level, difficulty: difficultyAt(template, level), avoid, recentSlots: [], slotCounts: [] };
 }
 
 describe('named', () => {
@@ -2402,9 +2402,10 @@ export interface RuleContext {
   rng: Rng;
   level: Level;
   difficulty: Difficulty;
-  /** key item ids to avoid as correct answers (recent history + earlier rounds of this set), oldest first */
+  /** key item ids to avoid as correct answers: recent history (in no particular order), then this set's earlier rounds, oldest first */
   avoid: readonly string[];
-  lastSlot: number | null;
+  /** earlier correct slots, oldest first: the previous set's last slot (if known), then this set's */
+  recentSlots: readonly number[];
   slotCounts: readonly number[];
 }
 
@@ -2464,8 +2465,9 @@ function rangeInts(range: readonly [number, number] | undefined, what: string): 
 
 /** Lay out one correct item among distractors, honouring the slot rules. */
 function chooseLayout(ctx: RuleContext, correct: RoundItem, others: RoundItem[]): { options: RoundItem[]; slot: number } {
-  const slot = chooseSlot(ctx.rng, others.length + 1, ctx.lastSlot, ctx.slotCounts);
-  return { options: placeAt(correct, others, slot), slot };
+  const slot = chooseSlot(ctx.rng, others.length + 1, ctx.recentSlots, ctx.slotCounts);
+  // placeAt keeps the others' order, and builders pass them sorted (similarity buckets, number distance).
+  return { options: placeAt(correct, shuffle(ctx.rng, others), slot), slot };
 }
 
 function buildNamed(ctx: RuleContext): RuleResult {
@@ -2807,17 +2809,31 @@ describe('generateSet', () => {
     );
   });
 
-  it('never puts the correct answer in the same slot twice running', () => {
-    fc.assert(
-      fc.property(fc.constantFrom('letters.tap', 'big-small.tap', 'cvc.hear', 'feelings.tap'), fc.integer({ min: 0, max: 300 }), (id, seed) => {
-        const rounds = generateSet(pack, pack.templates.get(id)!, { seed, level: 3, history: { ...EMPTY_HISTORY, lastSlot: 0 } });
-        let last: number | null = 0;
-        for (const r of rounds) {
-          expect(r.correctSlot).not.toBe(last);
-          last = r.correctSlot;
+  it('never puts the answer in one slot three times running, and does not just alternate', () => {
+    let alternating = 0;
+    for (const id of ['letters.tap', 'big-small.tap', 'cvc.hear', 'feelings.tap']) {
+      for (const level of [1, 2, 3] as const) {
+        for (let seed = 0; seed < 50; seed++) {
+          const slots = generateSet(pack, pack.templates.get(id)!, { seed, level, history: { ...EMPTY_HISTORY, lastSlot: 0 } }).map((r) => r.correctSlot);
+          const run = [0, ...slots]; // the last set ended in slot 0
+          for (let i = 2; i < run.length; i++) expect(run[i] === run[i - 1] && run[i] === run[i - 2]).toBe(false);
+          if (level === 1 && run.every((s, i) => i === 0 || s !== run[i - 1])) alternating++;
         }
-      }),
-    );
+      }
+    }
+    expect(alternating).toBeLessThan(100); // of 200 two-option sets; "never twice running" alternates in every one
+  });
+
+  it('does not replay the last set in the same order when history covers a small pool', () => {
+    const t = pack.templates.get('feelings.tap')!; // 6 rounds over 6 faces
+    let replays = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const last = generateSet(pack, t, { seed, level: 1, history: EMPTY_HISTORY }).map((r) => r.itemIds[0]!);
+      const next = generateSet(pack, t, { seed: seed + 1000, level: 1, history: { ...EMPTY_HISTORY, recentItemIds: last } }).map((r) => r.itemIds[0]!);
+      expect(new Set(next).size).toBe(next.length); // still no repeat within the set
+      if (next.join() === last.join()) replays++;
+    }
+    expect(replays).toBeLessThan(5);
   });
 
   it('does not repeat a correct item within a set when the pool is big enough', () => {
@@ -2875,7 +2891,7 @@ Expected: FAIL — `Cannot find module './round'`.
 // src/engine/generator/round.ts
 import type { ContentPack } from '../content/load';
 import { UI_SLOTS, type Template } from '../content/schema';
-import { deriveSeed, mulberry32, pick, type Rng } from '../rng';
+import { deriveSeed, mulberry32, pick, shuffle, type Rng } from '../rng';
 import { pluralOf } from './items';
 import { buildPayload, difficultyAt, GenerationError } from './rules';
 import type { GeneratorHistory, Level, Round } from './types';
@@ -2925,7 +2941,7 @@ interface RoundOptions {
   level: Level;
   sceneId: string;
   avoid: readonly string[];
-  lastSlot: number | null;
+  recentSlots: readonly number[];
   slotCounts: readonly number[];
   lastVariantByLine: Readonly<Record<string, number>>;
 }
@@ -2933,7 +2949,7 @@ interface RoundOptions {
 export function generateRound(pack: ContentPack, template: Template, opts: RoundOptions): Round {
   const rng = mulberry32(opts.seed);
   const difficulty = difficultyAt(template, opts.level);
-  const result = buildPayload({ pack, template, rng, level: opts.level, difficulty, avoid: opts.avoid, lastSlot: opts.lastSlot, slotCounts: opts.slotCounts });
+  const result = buildPayload({ pack, template, rng, level: opts.level, difficulty, avoid: opts.avoid, recentSlots: opts.recentSlots, slotCounts: opts.slotCounts });
   const lineId = result.promptLineId ?? template.flavour.promptLineId;
   const line = pack.lines.get(lineId);
   if (!line) throw new GenerationError(`missing line ${lineId}`);
@@ -2959,25 +2975,28 @@ export function generateRound(pack: ContentPack, template: Template, opts: Round
 export function generateSet(pack: ContentPack, template: Template, opts: GenerateOptions): Round[] {
   const setRng = mulberry32(deriveSeed(opts.seed, 'set'));
   const sceneId = pickScene(setRng, template.flavour.scenes, opts.history.lastSceneId);
+  // Rule 1 prefers what the last 3 sessions did not use; among what they did, no order is preferred.
+  // Shuffled, so a pool the history covers (feelings: 6 faces, 6 rounds) is not replayed in last set's order.
+  const recent = shuffle(setRng, [...new Set(opts.history.recentItemIds)]);
   const used: string[] = [];
   const slotCounts: number[] = [];
   const lastVariantByLine: Record<string, number> = { ...opts.history.lastVariantByLine };
-  let lastSlot = opts.history.lastSlot;
+  const recentSlots: number[] = opts.history.lastSlot === null ? [] : [opts.history.lastSlot];
   const rounds: Round[] = [];
   for (let i = 0; i < template.rounds; i++) {
     const round = generateRound(pack, template, {
       seed: deriveSeed(opts.seed, `round${i}`),
       level: opts.level,
       sceneId,
-      avoid: [...opts.history.recentItemIds, ...used],
-      lastSlot,
+      avoid: [...recent, ...used],
+      recentSlots: [...recentSlots],
       slotCounts,
       lastVariantByLine,
     });
     rounds.push(round);
     used.push(...round.itemIds);
     if (round.correctSlot !== null) {
-      lastSlot = round.correctSlot;
+      recentSlots.push(round.correctSlot);
       slotCounts[round.correctSlot] = (slotCounts[round.correctSlot] ?? 0) + 1;
     }
     lastVariantByLine[round.prompt.lineId] = round.prompt.variant;
@@ -2989,7 +3008,7 @@ export function generateSet(pack: ContentPack, template: Template, opts: Generat
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/generator/round.test.ts`
-Expected: PASS (9 tests). If the property test reports a failing seed, the shrunk counter-example names the template, level and seed — reproduce it with the inspect CLI from Task 11.
+Expected: PASS (10 tests). If the property test reports a failing seed, the shrunk counter-example names the template, level and seed — reproduce it with the inspect CLI from Task 11.
 
 - [ ] **Step 5: Commit**
 
@@ -5295,9 +5314,15 @@ The task text above is kept as written; where execution differed, the change is 
 - Validator: `{buddy}` is a known slot and `UI_SLOTS` (name, buddy — defined once in `content/schema.ts`) are never required of a rule (one more test). `good-habits.order` level 3 shows 4 steps, like level 2: a fair 5-step chain would pair steps whose order varies. The CLI rejects unknown flags (exit 2) and sets `process.exitCode`; the pack test fails on any unexpected warning.
 - Counts: 93 objects and 173 lines (Step 11's expected line says 92 and 172). Step 2's ENOENT names `content/templates`, which is read first.
 
+**Task 8 — sampling and slot placement**
+- The slot rule changed (spec §2.2 / §5.4 rule 2, measured on the real generator over 400 simulated children × 8 chained sets). "Never the same slot twice" made level 1 strict left-right alternation: a child tapping "the other side" scored 99% and was promoted in 93% of attempts. Now the answer may repeat once but never three times running, and every slot stays within one use of the least-used. Position alone now promotes in ≤ 0.3% of attempts; a slot rule-follower scores 65 / 42 / 31% against chance 50 / 33 / 25%. `chooseSlot` takes the recent slots (`recentSlots`) instead of only the last one.
+- `sampleWithoutRecent` guards `n <= 0`; docs state that the stale fallback draws nothing (callers shuffle equally old ids) and that distractor similarity is judged against the first correct entry. Tests pin the randomness itself (shuffled fresh items and buckets, random tie-breaks) and the run cap and balance: 28 of 31 mutants killed, the 3 survivors equivalent.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
+- Task 9: `RuleContext.recentSlots` replaces `lastSlot`, and `chooseLayout` shuffles the distractors before placing the answer (builders hand them over sorted — by similarity bucket, or by distance from the counted number — which made the answer's neighbours predictable).
+- Task 10: `generateSet` threads `recentSlots` (seeded with the history's last slot) and shuffles the recent history ids before using them, so a pool the history covers (feelings: 6 faces) no longer replays the previous set in the same order. The "never the same slot twice running" test is replaced by "never three times running, and does not just alternate", and a replay test is added (10 tests).
 - Task 10: the property test also checks that item ids are unique within every payload, and that each round fills exactly the prompt slots `slotsFilled` (Task 6) promises.
 - Task 10: `renderCaption` leaves UI_SLOTS (`{name}`, `{buddy}`, from `content/schema.ts`) to the UI, and uses the singular for `{targets}` when `{n}` is 1 ("Give Buddy 1 apple").
 - Task 12: `Profile.level` is typed `LevelId`.
