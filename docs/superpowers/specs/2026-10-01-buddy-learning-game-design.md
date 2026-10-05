@@ -425,7 +425,9 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 | Entity | Fields |
 |---|---|
 | Profile | id · name · level · Buddy (colour, name, accessory) · createdAt · settings overrides |
-| Attempt | profileId · timestamp · templateId · goalId · mechanic · form · seed · outcome (correct / corrected / shown) · hints · duration · details (e.g. write score components) |
+| Session | profileId · index (1, 2, 3… per profile; the "last 3 sessions" of §5.4 rule 1) · startedAt |
+| Attempt | profileId · timestamp · session index · templateId · goalId · mechanic · form · seed · outcome (correct / corrected / shown) · hints · duration · details (e.g. write score components) |
+| SetResult | profileId · timestamp · session index · templateId · goalId · level · correct · total (a finished set; the difficulty ramp of §5.4 rule 7) |
 | RoutineEvent | profileId · timestamp · sceneId · completed · selfReport (yes / not yet / skipped) · randomEventId |
 | CheckIn | profileId · timestamp · feeling · breathTaken |
 | Sticker | profileId · timestamp · pictureId · source (templateId or sceneId) · shiny |
@@ -483,7 +485,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 | Home scenes | 9 scripted scenes composing mechanics with bespoke art and lines | Mechanics, Audio, Buddy |
 | Buddy animator | rig, expressions, idle, moves, reactions; a single API (`express`, `say`, `perform`, `react`) | Audio, Theme |
 | Audio manager | line resolution chain, clips, TTS, SFX, music ducking, replay, unlock | Content packs |
-| Progress store | attempts, routine events, check-ins, stickers, unlocks, writing samples; mastery-by-form; template picker inputs | Storage |
+| Progress store | sessions, attempts, set results, routine events, check-ins, stickers, unlocks, writing samples; mastery-by-form; template picker inputs | Storage |
 | Rewards | sticker awarding, ladder, unlock ceremonies | Progress store, Buddy |
 | Parent corner | gate, views, settings, exam-prep launcher, backup/restore | Progress store, Content packs |
 | Exam-prep | paper definitions, paper rendering, marking | Mechanics, Round generator |
