@@ -3566,16 +3566,33 @@ describe('pickTemplate', () => {
   });
 
   it('favours templates whose goal needs practice', () => {
-    const weak = Array.from({ length: 6 }, () => attempt('big-small.sort', 'big-small', 'sort-into-bins:objects', 'shown'));
+    // feelings has two goals: naming a face (feelings.tap) and reading a scene (feelings.scene)
+    const weak = Array.from({ length: 6 }, () => attempt('feelings.read', 'feelings', 'scene-then-choose:scenes', 'shown'));
     const strong = [
-      ...Array.from({ length: 4 }, () => attempt('big-small.identify', 'big-small', 'tap-the-one:objects', 'correct')),
-      ...Array.from({ length: 4 }, () => attempt('big-small.identify', 'big-small', 'give-to-buddy:objects', 'correct')),
-      ...Array.from({ length: 4 }, () => attempt('big-small.identify', 'big-small', 'stack-by-size:objects', 'correct')),
+      ...Array.from({ length: 4 }, () => attempt('feelings.name', 'feelings', 'tap-the-one:faces', 'correct')),
+      ...Array.from({ length: 4 }, () => attempt('feelings.name', 'feelings', 'give-to-buddy:faces', 'correct')),
+      ...Array.from({ length: 4 }, () => attempt('feelings.name', 'feelings', 'sort-into-bins:faces', 'correct')),
     ];
-    const history: PickerHistory = { ...EMPTY_PICKER_HISTORY, attemptsByGoal: { 'big-small.sort': weak, 'big-small.identify': strong } };
-    let sorts = 0;
-    for (let s = 0; s < 200; s++) if (pickTemplate(pack, 'big-small', history, mulberry32(s)).template.id === 'big-small.sort') sorts++;
-    expect(sorts).toBeGreaterThan(140);
+    const history: PickerHistory = { ...EMPTY_PICKER_HISTORY, attemptsByGoal: { 'feelings.read': weak, 'feelings.name': strong } };
+    let scenes = 0;
+    for (let s = 0; s < 200; s++) if (pickTemplate(pack, 'feelings', history, mulberry32(s)).template.id === 'feelings.scene') scenes++;
+    expect(scenes).toBeGreaterThan(140);
+  });
+
+  it('bridges between the big/small games, which share a goal', () => {
+    const tap = pack.templates.get('big-small.tap')!;
+    const sort = pack.templates.get('big-small.sort')!;
+    const played = [
+      attempt(tap.goalId, 'big-small', 'tap-the-one:objects', 'correct', tap.id),
+      attempt(tap.goalId, 'big-small', 'tap-the-one:objects', 'correct', tap.id),
+      attempt(sort.goalId, 'big-small', 'sort-into-bins:objects', 'shown', sort.id),
+    ];
+    const attemptsByGoal: Record<string, Attempt[]> = {};
+    for (const a of played) (attemptsByGoal[a.goalId] ??= []).push(a);
+    const history: PickerHistory = { ...EMPTY_PICKER_HISTORY, attemptsByGoal, lastMechanicByTopic: { 'big-small': 'sort-into-bins' } };
+    const pick = pickTemplate(pack, 'big-small', history, mulberry32(1));
+    expect(pick.template.id).toBe('big-small.tap');
+    expect(pick.bridgeFrom).toBe('sort-into-bins:objects');
   });
 
   it('bridges to a known-good form after a miss on a new form of the same goal', () => {
@@ -3734,7 +3751,7 @@ export function suggestTopic(pack: ContentPack, history: PickerHistory, rng: Rng
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/progress/picker.test.ts`
-Expected: PASS (6 tests).
+Expected: PASS (7 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -4071,7 +4088,8 @@ describe('buildPickerHistory', () => {
     expect(h.sessionIndex).toBe(3);
     expect(h.lastPlayedSession).toEqual({ 'big-small.tap': 1, 'feelings.tap': 2, 'big-small.sort': 2 });
     expect(h.lastMechanicByTopic).toEqual({ 'big-small': 'sort-into-bins', feelings: 'tap-the-one' });
-    expect(Object.keys(h.attemptsByGoal).sort()).toEqual(['big-small.identify', 'big-small.sort', 'feelings.name']);
+    expect(Object.keys(h.attemptsByGoal).sort()).toEqual(['big-small.identify', 'feelings.name']); // both big/small games share a goal
+    expect(h.attemptsByGoal['big-small.identify']).toHaveLength(tap.length + sort.length);
     expect(h.lastTopicId).toBe('big-small');
     expect(h.lastSuggestedSubject).toBeNull();
   });
@@ -5423,6 +5441,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Routines: a morning wash and morning-only brushing; an evening bath, then shorts (not pyjamas). No sequence pairs two steps whose order varies between families, and six sequences give levels 1–2 real variety.
 - Words and tags: "cool drink" (id `cool-drink`) instead of cola; `wash-face` and `change-into-shorts` replace `wear-pyjamas`; bat is a cricket bat (`thing`); bus, car and van stay `thing` (as `vehicle`, bus and van were each other's first distractor in half the CVC rounds); no `neatAndClean: false` tags; q's confusables include g; single-scene templates gain a second scene.
 - Validator: `{buddy}` is a known slot and `UI_SLOTS` (name, buddy — defined once in `content/schema.ts`) are never required of a rule (one more test). `good-habits.order` level 3 shows 4 steps, like level 2: a fair 5-step chain would pair steps whose order varies. The CLI rejects unknown flags (exit 2) and sets `process.exitCode`; the pack test fails on any unexpected warning.
+- Goals (parent decision, 2026-10-05, after Task 12): games that test the same skill share a goal, so bridging (§5.5) can link their forms in M1 — big/small tap and sort share `big-small.identify` ("Tell big from small"), and counting match and give share `counting.count` ("Count a group, and give the right number"). Mastery still needs 3 forms, so no M1 goal can be mastered yet. 13 goals; one more pack test pins the shared goals.
 - Counts: 93 objects and 173 lines (Step 11's expected line says 92 and 172). Step 2's ENOENT names `content/templates`, which is read first.
 
 **Task 8 — sampling and slot placement**
@@ -5461,6 +5480,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 12: `Attempt.seed` is the set's seed; `AttemptDetails.round` records the round's place in the set (`Round.index`) and `payloadHash` a hash of what was on screen.
 - Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, or gives undefined when the result differs from what the attempt recorded (`roundDetails` builds both, including the payload hash): a content update or a set not played as generated gives no round rather than a different one. Tests replay every attempt of five sessions played with real history, and check that a changed pack — a new phrasing, object or scene, or one fewer option — never replays a different round (6 tests). Task 23's hand-off names `replayRound`.
+- Tasks 14 and 16 (after the goal merge): the picker test that favours a weaker goal uses the two feelings goals, a new test bridges between the big/small games on the real pack (7 tests), and the picker-history test expects one big/small goal.
 - Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
 - Task 18: `SpeakRequest.slots` is readonly, so the manager can't write into a round's slots.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
@@ -5478,6 +5498,7 @@ The task text above is kept as written; where execution differed, the change is 
 - The glyph font needs a capital I and a small l that look different (they appear side by side in capital/small rounds), and single-storey a and g.
 - Draw scene-then-choose vignettes full-frame: the set's background can contradict them (thunder over the playground).
 - Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
+- In M1 no goal can be mastered: a goal has at most 2 forms and mastery needs 3 (parent decision). Show the forms tried beside the status, so "shaky" reads as learning in 1 of 3 game types rather than as failing.
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
