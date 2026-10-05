@@ -3413,6 +3413,10 @@ describe('levelFor', () => {
     expect(levelFor([set(1, 2)])).toBe(1);
   });
 
+  it('ignores a set left before its first answer', () => {
+    expect(levelFor([set(1, 6), set(1, 6), set(2, 0, 0)])).toBe(2);
+  });
+
   it('a middling set breaks the streak', () => {
     expect(levelFor([set(1, 6), set(1, 4), set(1, 6)])).toBe(1);
   });
@@ -3472,11 +3476,12 @@ export function levelFor(results: readonly SetResult[]): Level {
   let level: Level = 1;
   let streak = 0;
   for (const r of [...results].sort((a, b) => a.at - b.at)) {
+    if (r.total === 0) continue; // a set left before its first answer says nothing about the level
     if (r.level !== level) {
       streak = 0;
       continue;
     }
-    const rate = r.total === 0 ? 0 : r.correct / r.total;
+    const rate = r.correct / r.total;
     if (rate >= 0.85) {
       streak += 1;
       if (streak >= 2 && level < 3) {
@@ -3517,7 +3522,7 @@ export function preferredForm(attempts: readonly Attempt[]): string | null {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/engine/progress/difficulty.test.ts src/engine/progress/bridging.test.ts`
-Expected: PASS (9 tests).
+Expected: PASS (10 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -3939,7 +3944,8 @@ export async function setResultsForTemplate(db: BuddyDB, profileId: string, temp
 }
 
 export async function getSettings(db: BuddyDB, profileId: string): Promise<Settings> {
-  return (await db.settings.get(profileId)) ?? defaultSettings(profileId);
+  // a field added to Settings later has its default for profiles saved before it
+  return { ...defaultSettings(profileId), ...(await db.settings.get(profileId)) };
 }
 
 export async function saveSettings(db: BuddyDB, settings: Settings): Promise<void> {
@@ -4113,7 +4119,7 @@ import { attemptsForGoal, attemptsForProfile, type BuddyDB } from './db';
 import type { PickerHistory } from './picker';
 import type { Attempt, AttemptDetails, Outcome } from './types';
 
-/** What a round records about itself in its attempt (a mechanic may add details of its own beside these). */
+/** What a round records about itself in its attempt (a mechanic that records more adds a named field to AttemptDetails). */
 function roundDetails(round: Round): AttemptDetails {
   return {
     itemIds: [...round.itemIds], // the attempt's own array: the round's is frozen
@@ -4187,7 +4193,7 @@ export function replayRound(pack: ContentPack, goalAttempts: readonly Attempt[],
   const start = Math.min(attempt.at, ...sameSet.map((a) => a.at));
   const history = generatorHistoryFrom(goalAttempts.filter((a) => a.goalId === attempt.goalId && a.at < start), attempt.sessionIndex);
   const round = generateSet(pack, template, { seed: attempt.seed, level: attempt.level, history })[recorded.round];
-  const same = round !== undefined && Object.entries(roundDetails(round)).every(([key, value]) => JSON.stringify(value) === JSON.stringify(recorded[key]));
+  const same = round !== undefined && Object.entries(roundDetails(round)).every(([key, value]) => JSON.stringify(value) === JSON.stringify(recorded[key as keyof AttemptDetails]));
   return same ? round : undefined;
 }
 
@@ -5469,6 +5475,12 @@ The task text above is kept as written; where execution differed, the change is 
 - Pairs and bins listings add a `shown:` line with the on-screen order.
 - With the Task 10 follow-ups: every field of a round — its prompt, payload, items and bins, arrays included — is readonly in the types, matching the runtime freeze (an assignment such as `round.prompt.text = …` no longer compiles), and the freeze test checks that every object a round reaches is frozen and nothing in the pack is.
 
+**Task 12 — progress types and mastery**
+- A `corrected` round is not correct: §5.5 says "% correct", and its hint showed the answer (§4.4). Under the task text's half credit a child who taps every hinted answer could never be needs-practice, and a child who knows 1 answer in 5 on two-option rounds passed 80% in 44% of windows (8% now). §4.4 calls the inactivity wiggle a hint too, so an answer after it is `corrected`.
+- `Outcome`, `hints` and `SetResult.correct` / `total` say what counts; `at`, both meanings of `level`, and `WritingSample` stroke units (fractions of the writing box) are documented. `AttemptDetails` has no index signature, so a misspelt field no longer compiles.
+- `goalStatus` has no window parameter (`WINDOW = 12`): `goals.map(goalStatus)` would have passed the index as the window. `formSummary` returns `FormSummaryRow[]` and breaks ties by code unit.
+- 8 tests instead of 6 pin every threshold at the nearest fraction a window allows, the window edge and the time order (36 of 38 mutants killed; the 2 survivors are equivalent).
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
@@ -5480,6 +5492,9 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 12: `Profile.level` is typed `LevelId`.
 - Task 12: `Attempt.seed` is the set's seed; `AttemptDetails.round` records the round's place in the set (`Round.index`) and `payloadHash` a hash of what was on screen.
 - Task 16: `attemptFromRound` records `round: round.index`; `generatorHistoryFrom` is the pure core of `buildGeneratorHistory`; `replayRound` regenerates a recorded round from its attempt and the goal's attempts before its set, or gives undefined when the result differs from what the attempt recorded (`roundDetails` builds both, including the payload hash): a content update or a set not played as generated gives no round rather than a different one. Tests replay every attempt of five sessions played with real history, and check that a changed pack — a new phrasing, object or scene, or one fewer option — never replays a different round (6 tests). Task 23's hand-off names `replayRound`.
+- Task 13: `levelFor` skips a set with no rounds played (`total === 0`): a set left before its first answer says nothing about the level (10 tests).
+- Task 15: `getSettings` merges a stored row over the defaults, so a Settings field added later has its default for profiles saved before it.
+- Task 16: `replayRound` indexes `AttemptDetails` by its named keys (no index signature).
 - Tasks 14 and 16 (after the goal merge): the picker test that favours a weaker goal uses the two feelings goals, a new test bridges between the big/small games on the real pack (7 tests), and the picker-history test expects one big/small goal.
 - Task 16: `roundDetails` copies the round's `itemIds` into the attempt (rounds are frozen and their arrays readonly).
 - Task 18: `SpeakRequest.slots` is readonly, so the manager can't write into a round's slots.
@@ -5499,6 +5514,8 @@ The task text above is kept as written; where execution differed, the change is 
 - Draw scene-then-choose vignettes full-frame: the set's background can contradict them (thunder over the playground).
 - Assets: `bat` is a cricket bat; new pictures `routine/wash-face`, `routine/change-into-shorts`, `objects/cool-drink`.
 - In M1 no goal can be mastered: a goal has at most 2 forms and mastery needs 3 (parent decision). Show the forms tried beside the status, so "shaky" reads as learning in 1 of 3 game types rather than as failing.
+- A round is `correct` only if the right answer came before any hint pointed at it. After the first-miss hint or an inactivity wiggle it is `corrected`, and after a second miss it is `shown` (types.ts `Outcome`). `SetResult.correct` counts the set's `correct` rounds, and `total` the rounds played.
+- Record the option the child picked wrongly as a named `AttemptDetails` field from the first mechanic on, so the parent corner's named confusions (§5.5, §8: b/d, 6/9) have history when they land.
 - Judge answers by `correctIds` and `choice.correct`, never by `correctSlot`: a scenario can have two right answers and tap-all several. `correctSlot` is the slot rule's bookkeeping (and where a hint can point).
 - `Round.itemIds` holds more than object ids: glyph ids, rhyme groups, case-pair keys, sequence and scenario ids, and `n:<value>` counts. Anything that turns item ids into pictures or stickers looks them up in `pack.objects` / `pack.glyphs` and skips the rest.
 - Give every set a fresh random 32-bit seed, and build the next set's history only after the previous set's attempts are written: `replayRound` finds a set by template, seed and session, and rebuilds its history from the attempts before it. For the same reason, record every round of a set under the session index its history was built for (a set resumed in a later session is a new set), and generate from the pack's template as it is: a shorter set (5 rounds after 10 minutes) is the full set's prefix and replays; a template adapted on the fly (fewer options on a phone) does not.
