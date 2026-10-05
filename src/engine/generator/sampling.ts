@@ -4,8 +4,10 @@ import type { Difficulty } from '../content/schema';
 import { categoryOf, tagOf, type Candidate } from './items';
 
 /**
- * Pick `n` distinct entries, preferring ones whose id is not in `recent`.
+ * Pick `n` distinct entries (none when `n` ≤ 0), preferring ones whose id is not in `recent`.
  * `recent` is ordered oldest → newest; when fresh entries run out, the least recently used fill in.
+ * That fallback draws nothing: stale entries come back in `recent`'s order, so a caller whose ids are
+ * equally old (all from the last 3 sessions, say) shuffles them first, or a small pool repeats its order.
  */
 export function sampleWithoutRecent<T extends { id: string }>(
   rng: Rng,
@@ -13,6 +15,7 @@ export function sampleWithoutRecent<T extends { id: string }>(
   n: number,
   recent: readonly string[],
 ): T[] {
+  if (n <= 0) return [];
   const recency = new Map<string, number>();
   recent.forEach((id, i) => recency.set(id, i));
   const fresh = shuffle(rng, pool.filter((p) => !recency.has(p.id)));
@@ -33,9 +36,11 @@ function isConfusable(a: Candidate, b: Candidate): boolean {
 }
 
 /**
- * Distractors for `correct`, chosen by similarity:
+ * Distractors for `correct`, chosen by similarity to its first entry:
  * low → other categories first; medium → same category first;
  * high → confusables (glyph list / shared colour) first, then same category, then the rest.
+ * Never a correct entry, nor anything spoken like one. Returned in that order of preference,
+ * so a caller laying them out shuffles them first.
  */
 export function pickDistractors(
   rng: Rng,
@@ -58,8 +63,8 @@ export function pickDistractors(
   else if (similarity === 'medium') buckets = [sameCategory, otherCategory];
   else {
     const confusable = rest.filter((c) => isConfusable(first, c));
-    const confusableIds = new Set(confusable.map((c) => c.item.id));
-    buckets = [confusable, sameCategory.filter((c) => !confusableIds.has(c.item.id)), otherCategory.filter((c) => !confusableIds.has(c.item.id))];
+    const confusableIds = new Set(confusable.map((c) => c.id));
+    buckets = [confusable, sameCategory.filter((c) => !confusableIds.has(c.id)), otherCategory.filter((c) => !confusableIds.has(c.id))];
   }
 
   const out: Candidate[] = [];
@@ -67,8 +72,8 @@ export function pickDistractors(
   for (const bucket of buckets) {
     for (const c of shuffle(rng, bucket)) {
       if (out.length >= n) return out;
-      if (seen.has(c.item.id)) continue;
-      seen.add(c.item.id);
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
       out.push(c);
     }
   }

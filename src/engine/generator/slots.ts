@@ -1,16 +1,29 @@
 // src/engine/generator/slots.ts
 import { pick, type Rng } from '../rng';
 
-/** Slot for the correct option: never the last slot, and the least-used slot so far in the set. */
-export function chooseSlot(rng: Rng, optionCount: number, lastSlot: number | null, counts: readonly number[]): number {
+/** The answer may sit in one slot for at most this many rounds running. */
+const MAX_RUN = 2;
+
+/**
+ * Slot for the correct option (variation rule 2), so a child can't win by position.
+ * `recent` holds the earlier correct slots, oldest → newest: the previous set's last slot (if known), then this set's.
+ * `counts` tallies this set's slots only, and may be sparse.
+ * The same slot may hold the answer twice running but never three times: "never twice" would make "anywhere but
+ * last time" pay, and with two options it is strict left-right alternation. Every slot stays within one use of the
+ * least-used, rather than the least-used being forced, so the last round of a cycle is not predictable either.
+ */
+export function chooseSlot(rng: Rng, optionCount: number, recent: readonly number[], counts: readonly number[]): number {
   if (optionCount <= 0) throw new Error('optionCount must be positive');
   if (optionCount === 1) return 0;
-  const candidates = Array.from({ length: optionCount }, (_, i) => i).filter((s) => s !== lastSlot);
-  const minCount = Math.min(...candidates.map((s) => counts[s] ?? 0));
-  return pick(rng, candidates.filter((s) => (counts[s] ?? 0) === minCount));
+  const last = recent[recent.length - 1];
+  let run = 0;
+  while (run < recent.length && recent[recent.length - 1 - run] === last) run++;
+  const allowed = Array.from({ length: optionCount }, (_, i) => i).filter((s) => s !== last || run < MAX_RUN);
+  const least = Math.min(...allowed.map((s) => counts[s] ?? 0));
+  return pick(rng, allowed.filter((s) => (counts[s] ?? 0) <= least + 1));
 }
 
-/** Insert `correct` into `others` at `slot` (clamped to the end). */
+/** Insert `correct` into `others` at `slot` (clamped to the end). Keeps the others' order: shuffle them first. */
 export function placeAt<T>(correct: T, others: readonly T[], slot: number): T[] {
   const out = [...others];
   out.splice(Math.min(slot, out.length), 0, correct);
