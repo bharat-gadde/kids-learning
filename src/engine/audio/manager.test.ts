@@ -31,6 +31,27 @@ class FakeHeart implements HeartSource {
   urlFor(id: string) { return `heart://${id}`; }
 }
 
+/** A clip or utterance still sounding: play()/speak() settle only when stopped or cancelled (never, with settle = false). */
+class GatedPlayer implements ClipPlayer {
+  played: string[] = [];
+  private pending: (() => void)[] = [];
+  constructor(private settle = true) {}
+  play(url: string) { this.played.push(url); return new Promise<void>((r) => this.pending.push(r)); }
+  stop() { if (this.settle) this.finish(); }
+  finish() { this.pending.splice(0).forEach((r) => r()); }
+}
+class GatedTts implements TtsEngine {
+  spoken: string[] = [];
+  private pending: (() => void)[] = [];
+  constructor(private settle = true) {}
+  available() { return true; }
+  speak(text: string) { this.spoken.push(text); return new Promise<void>((r) => this.pending.push(r)); }
+  cancel() { if (this.settle) this.pending.splice(0).forEach((r) => r()); }
+}
+const flush = () => new Promise((r) => setTimeout(r, 0));
+/** p's value, or 'pending' if it has not settled by the next macrotask */
+const settled = <T>(p: Promise<T>) => Promise.race([p, new Promise<'pending'>((r) => setTimeout(() => r('pending'), 0))]);
+
 const everyClip = new FakeClips(new Set([
   'prompt.tap_big.v0.s0', 'obj.elephant.v0.s0', 'glyph.num.1.v0.s0', 'glyph.num.3.v0.s0', 'obj.mango.v0.s0', 'obj.mango.plural',
   'fb.correct.v1.s0', 'prompt.give_n.v1.s0',
@@ -74,6 +95,7 @@ describe('AudioManager.speak', () => {
       { source: 'clip', text: 'three' },
       { source: 'clip', text: 'mangoes' },
     ]);
+    expect(player.played.at(-1)).toBe('/audio/lines/obj.mango.plural.mp3');
   });
 
   it('speaks a chosen name as typed, even when it is also an object id', async () => {
@@ -103,6 +125,33 @@ describe('AudioManager.speak', () => {
     expect(parts).toEqual([{ source: 'silent', text: "It's this one!" }]);
   });
 
+  it('skips a slot with no value, or an empty one', async () => {
+    const tts = new FakeTts();
+    const am = new AudioManager({ pack, clips: new FakeClips(new Set()), player: new FakePlayer(), tts });
+    await am.speak({ lineId: 'buddy.greet_morning', variant: 0 });
+    await am.speak({ lineId: 'buddy.greet_morning', variant: 0, slots: { name: '' } });
+    expect(tts.spoken).toEqual(['Good morning,', 'Good morning,']);
+  });
+
+  it('clamps the variant into range', async () => {
+    const am = new AudioManager({ pack, clips: new FakeClips(new Set()), player: new FakePlayer(), tts: new FakeTts() });
+    const say = async (variant: number) => (await am.speak({ lineId: 'fb.correct', variant }))[0]?.text;
+    const v = pack.lines.get('fb.correct')?.variants ?? [];
+    expect([await say(99), await say(-1), await say(NaN), await say(0.5)]).toEqual([v.at(-1), v[0], v[0], v[0]]);
+  });
+
+  it('falls through to TTS when a clip fails to load or play, and the line goes on', async () => {
+    const tts = new FakeTts();
+    const player: ClipPlayer = { play: () => Promise.reject(new Error('404')), stop: () => {} };
+    const am = new AudioManager({ pack, clips: everyClip, player, tts });
+    const parts = await am.speak({ lineId: 'prompt.tap_big', variant: 0, slots: { target: 'elephant' } });
+    expect(parts.map((p) => p.source)).toEqual(['tts', 'tts']);
+    expect(tts.spoken).toEqual(['Tap the biggest', 'elephant']);
+    const broken: TtsEngine = { available: () => true, speak: () => Promise.reject(new Error('synthesis-failed')), cancel: () => {} };
+    const am2 = new AudioManager({ pack, clips: everyClip, player, tts: broken });
+    expect(await am2.speak({ lineId: 'fb.shown', variant: 0 })).toEqual([{ source: 'silent', text: "It's this one!" }]);
+  });
+
   it('throws for an unknown line', async () => {
     const am = new AudioManager({ pack, clips: everyClip, player: new FakePlayer(), tts: new FakeTts() });
     await expect(am.speak({ lineId: 'nope' })).rejects.toThrow('unknown line nope');
@@ -121,6 +170,60 @@ describe('replay and stop', () => {
     am.stop();
     expect(player.stopped).toBeGreaterThan(0);
     expect(tts.cancelled).toBeGreaterThan(0);
+  });
+});
+
+describe('interruption', () => {
+  it('a newer speak() stops the earlier one, which settles and starts nothing more', async () => {
+    const player = new GatedPlayer();
+    const am = new AudioManager({ pack, clips: everyClip, player, tts: new FakeTts() });
+    const first = am.speak({ lineId: 'prompt.tap_big', variant: 0, slots: { target: 'elephant' } });
+    await flush();
+    const second = am.speak({ lineId: 'fb.correct', variant: 1 });
+    expect(await settled(first)).toEqual([{ source: 'clip', text: 'Tap the biggest' }]);
+    player.finish();
+    expect(await settled(second)).toEqual([{ source: 'clip', text: 'Well done!' }]);
+    expect(player.played).toEqual(['/audio/lines/prompt.tap_big.v0.s0.mp3', '/audio/lines/fb.correct.v1.s0.mp3']);
+  });
+
+  it('stop() settles the speak even when the player or TTS never settle theirs', async () => {
+    const am = new AudioManager({ pack, clips: everyClip, player: new GatedPlayer(false), tts: new GatedTts(false) });
+    const clip = am.speak({ lineId: 'fb.correct', variant: 1 });
+    await flush();
+    am.stop();
+    expect(await settled(clip)).toEqual([{ source: 'clip', text: 'Well done!' }]);
+    const tts = am.speak({ lineId: 'fb.shown', variant: 0 });
+    await flush();
+    am.stop();
+    expect(await settled(tts)).toEqual([{ source: 'tts', text: "It's this one!" }]);
+  });
+
+  it('starts nothing for an interrupted line whose Heart lookup resolves late', async () => {
+    let found = (_yes: boolean) => {};
+    const heart: HeartSource = {
+      has: (id) => (id === 'fb.correct.v1.s0' ? new Promise<boolean>((r) => (found = r)) : Promise.resolve(false)),
+      urlFor: (id) => `heart://${id}`,
+    };
+    const player = new GatedPlayer();
+    const tts = new GatedTts();
+    const am = new AudioManager({ pack, clips: everyClip, player, tts, heart });
+    void am.speak({ lineId: 'fb.correct', variant: 1 });
+    await flush();
+    void am.speak({ lineId: 'fb.shown', variant: 0 });
+    await flush();
+    found(true);
+    await flush();
+    expect(player.played).toEqual([]);
+    expect(tts.spoken).toEqual(["It's this one!"]);
+  });
+
+  it('an unknown line leaves replay() with the last good request', async () => {
+    const player = new FakePlayer();
+    const am = new AudioManager({ pack, clips: everyClip, player, tts: new FakeTts() });
+    await am.speak({ lineId: 'fb.correct', variant: 1 });
+    await expect(am.speak({ lineId: 'nope' })).rejects.toThrow('unknown line nope');
+    await am.replay();
+    expect(player.played).toEqual(['/audio/lines/fb.correct.v1.s0.mp3', '/audio/lines/fb.correct.v1.s0.mp3']);
   });
 });
 
