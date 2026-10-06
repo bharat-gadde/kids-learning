@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readPack } from '../src/engine/content/readPackFromDisk';
+import { assetPaths } from '../src/engine/content/assets';
 import { ContentError, type ContentPack } from '../src/engine/content/load';
 import { validatePack } from '../src/engine/content/validate';
 import type { ClipManifest } from '../src/engine/audio/manifest';
@@ -35,6 +36,11 @@ const MANIFEST = fileURLToPath(new URL('../public/audio/manifest.json', import.m
 if (existsSync(MANIFEST)) {
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as ClipManifest;
   for (const id of staleClips(pack, manifest)) issues.push({ level: 'warning', where: `clip ${id}`, message: 'its line changed since the clip was generated; run npm run voice' });
+}
+// spec §14: every picture the content refers to is in public/art (a missing one would show a blank stand-in)
+const ART = fileURLToPath(new URL('../public/art/', import.meta.url));
+for (const asset of assetPaths(pack)) {
+  if (!existsSync(ART + asset)) issues.push({ level: 'error', where: `picture ${asset}`, message: 'no such file in public/art (npm run art fetches the OpenMoji ones)' });
 }
 const errors = issues.filter((i) => i.level === 'error');
 const warnings = issues.filter((i) => i.level === 'warning');
