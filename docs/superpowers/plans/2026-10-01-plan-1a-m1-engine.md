@@ -5307,7 +5307,7 @@ import { readPack } from '../src/engine/content/readPackFromDisk';
 import { validatePack } from '../src/engine/content/validate';
 import { EMPTY_MANIFEST, type ClipManifest } from '../src/engine/audio/manifest';
 import { planClips } from './voice/plan';
-import { synthesize } from './voice/azure';
+import { OUTPUT_FORMAT, synthesizeWithRetry } from './voice/azure';
 
 try {
   process.loadEnvFile?.('.env');
@@ -5332,11 +5332,13 @@ if (contentErrors.length > 0) {
   console.error(`${contentErrors.length} content error(s); fix them first (npm run validate).`);
   process.exit(1);
 }
-const manifest: ClipManifest = existsSync(MANIFEST_PATH) ? (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as ClipManifest) : { ...EMPTY_MANIFEST, voice: VOICE };
+const manifest: ClipManifest = existsSync(MANIFEST_PATH) ? (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as ClipManifest) : { ...EMPTY_MANIFEST, voice: VOICE, clips: {} }; // own clips object: EMPTY_MANIFEST's is shared
 if (manifest.voice && manifest.voice !== VOICE) console.log(`Voice changed ${manifest.voice} → ${VOICE}: every clip will be regenerated.`);
 manifest.voice = VOICE;
+// A clip whose file is gone (deleted by hand, partial checkout) is made again, not reported as up to date.
+for (const [id, entry] of Object.entries(manifest.clips)) if (!existsSync(join(LINES_DIR, entry.file))) delete manifest.clips[id];
 
-const plan = planClips(pack, manifest, `${VOICE}|${RATE}`); // the rate changes the audio too, so it is part of each clip's hash
+const plan = planClips(pack, manifest, `${VOICE}|${RATE}|${OUTPUT_FORMAT}`); // the rate and the format change the audio too, so they are part of each clip's hash
 console.log(`${plan.unchanged.length} clips up to date · ${plan.needed.length} to generate · ${plan.orphans.length} orphaned`);
 
 if (dryRun) {
@@ -5357,7 +5359,17 @@ const save = () => writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null
 
 let done = 0;
 for (const clip of plan.needed) {
-  const bytes = await synthesize(clip.text, { key, region, voice: VOICE, rate: RATE });
+  let bytes: Uint8Array;
+  try {
+    // Retries 429 (F0 allows 20 calls a minute, and Azure throttles while it scales up) and 5xx, with backoff.
+    bytes = await synthesizeWithRetry(clip.text, { key, region, voice: VOICE, rate: RATE }, {
+      onRetry: ({ attempt, delayMs, error }) => console.warn(`  … ${clip.clipId}: ${error instanceof Error ? error.message : String(error)}; retry ${attempt} in ${Math.round(delayMs / 1000)} s`),
+    });
+  } catch (error) {
+    console.error(`✖ ${clip.clipId}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`${done} clip(s) saved. Run npm run voice again to resume.`);
+    process.exit(1);
+  }
   writeFileSync(join(LINES_DIR, clip.file), bytes);
   manifest.clips[clip.clipId] = { text: clip.text, hash: clip.hash, file: clip.file };
   save(); // resume-safe: a crash keeps what was generated
@@ -5647,6 +5659,14 @@ The task text above is kept as written; where execution differed, the change is 
 - `WebSpeechTts` resolves on `'interrupted'` or `'canceled'` (what `cancel()` produces) and rejects other errors, so the chain's "TTS failed → silent" path is real; a timeout (3 s + 150 ms per character) settles an engine that fires neither end nor error (iOS outside a tap); `utterance.lang` is set from the picked voice or the first preference, and `'en'` ends the preference list, so Chrome speaks English before its voices load.
 - 11 tests instead of 6; none of 18 mutants of the fixed adapters survive.
 
+**Task 20 — time of day**
+- One more test: every day block's greeting line exists in the content pack (a renamed line would otherwise fail on the Hello screen at run time).
+
+**Task 21 — voice planning and the Azure adapter**
+- Azure's quotas page (2026-09-24): the free tier (F0) allows 20 calls per 60 seconds, not adjustable; standard (S0) 30 per second by default, and every client should retry 429s, which Azure also returns while it scales a voice up. `synthesize` threw a plain Error, so a full run (≈260 clips) crashed at about the 21st clip on F0. `synthesizeWithRetry` retries 429, 5xx and network failures with exponential backoff (2 s up to 60 s, never under `Retry-After`, 6 retries); `AzureTtsError` carries the status and `Retry-After`, never the key.
+- `assertConfig` refuses a region that is not a bare name (an endpoint URL pasted from the portal would send the key to another host) and a key with spaces or control characters (fetch quotes an invalid header value, key included, in its error); an empty 200 is an error rather than a clip saved as up to date; `xml:lang` follows the voice name (`voiceLocale`), attribute values are escaped, and `OUTPUT_FORMAT` is exported for the clip hash.
+- 17 tests instead of 7 (the task text said 6; its blocks always held one more): the exact SSML, the POST and its headers, the voice in the hash, retries and the never-retried 401, and the config guards.
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
@@ -5669,6 +5689,7 @@ The task text above is kept as written; where execution differed, the change is 
 - Task 18: a clip counts only for the text it was generated from — `ClipSource.has(clipId, text)` (and `HeartSource`'s) — so an edited line speaks by TTS until `npm run voice` runs, instead of playing the old audio under the new caption; object and glyph names take their clip id and text from `segmentLine`, exactly as `allTextClips` generated them (11 tests).
 - Task 21: `staleClips(pack, manifest)` lists the clips whose line text changed since generation (6 tests).
 - Task 22: `npm run validate` warns about each stale clip (spec §7), so `--strict` fails until the voice is regenerated; `gen-voice` hashes the voice and the rate together, so a rate change regenerates the clips.
+- Task 22: `gen-voice` uses `synthesizeWithRetry` (logging each retry; on a final failure it says how many clips were saved and to run it again), hashes the output format with the voice and rate, gives a new manifest its own `clips` object, and regenerates a clip whose file is missing instead of counting it up to date.
 - Task 18: `speakSlot` speaks UI_SLOTS ({name}, {buddy}) straight to TTS — never through the object or glyph lookup — and says the singular after a count of one; the manager tests follow the new wording ("Tap the biggest", `{buddy}` spoken by TTS) — 10 tests.
 - Task 22: `gen-voice` runs `validatePack` first and refuses to call Azure while the content has errors.
 - Task 23: the README's inspect row says it prints the set made with no history.
