@@ -1,7 +1,11 @@
 // scripts/validate-content.ts
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { readPack } from '../src/engine/content/readPackFromDisk';
 import { ContentError, type ContentPack } from '../src/engine/content/load';
 import { validatePack } from '../src/engine/content/validate';
+import type { ClipManifest } from '../src/engine/audio/manifest';
+import { staleClips } from './voice/plan';
 
 const args = process.argv.slice(2);
 const unknown = args.filter((a) => a !== '--strict');
@@ -26,6 +30,12 @@ function loadOrExit(): ContentPack {
 const pack = loadOrExit();
 
 const issues = validatePack(pack);
+// spec §7: clips whose line was edited after `npm run voice` (the app falls back to TTS for them until regenerated)
+const MANIFEST = fileURLToPath(new URL('../public/audio/manifest.json', import.meta.url));
+if (existsSync(MANIFEST)) {
+  const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as ClipManifest;
+  for (const id of staleClips(pack, manifest)) issues.push({ level: 'warning', where: `clip ${id}`, message: 'its line changed since the clip was generated; run npm run voice' });
+}
 const errors = issues.filter((i) => i.level === 'error');
 const warnings = issues.filter((i) => i.level === 'warning');
 for (const i of issues) console.log(`${i.level === 'error' ? '✖' : '▲'} ${i.where}: ${i.message}`);
