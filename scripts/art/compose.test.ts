@@ -1,6 +1,7 @@
 // scripts/art/compose.test.ts
 import { describe, it, expect } from 'vitest';
-import { composeSvg, hexesOf, innerSvg, openMojiUrl } from './compose';
+import { readFileSync } from 'node:fs';
+import { composeSvg, hexesOf, innerSvg, openMojiUrl, parseSources } from './compose';
 
 const apple = '<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">\n  <g id="color"><path fill="#ea5a47" d="M1 1"/></g>\n  <g id="line"><path d="M2 2"/></g>\n</svg>\n';
 const basket = '<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><g id="line"><path d="M3 3"/></g></svg>';
@@ -11,6 +12,12 @@ describe('innerSvg', () => {
   });
   it('rejects a file that is not an SVG', () => {
     expect(() => innerSvg('<html></html>')).toThrow('not an SVG file');
+    expect(() => innerSvg('<!-- <svg> --><svg viewBox="0 0 72 72"></svg>')).toThrow('not an SVG file');
+  });
+  it('rejects a drawing that is not 72 × 72, or that refers to its own ids', () => {
+    expect(() => innerSvg('<svg viewBox="0 0 36 36"><path d="M1 1"/></svg>')).toThrow('viewBox "0 0 72 72"');
+    expect(() => innerSvg('<svg viewBox="0 0 72 72"><linearGradient id="g"/><path fill="url(#g)"/></svg>')).toThrow('refers to its own ids');
+    expect(() => innerSvg('<svg viewBox="0 0 72 72"><use href="#a"/></svg>')).toThrow('refers to its own ids');
   });
 });
 
@@ -28,8 +35,21 @@ describe('composeSvg', () => {
     );
     expect(svg).not.toContain('id=');
   });
+  it('draws in a 72 × 72 box unless the composition says otherwise', () => {
+    expect(composeSvg({ layers: [{ hex: '1F34E', x: 0, y: 0, size: 72 }] }, new Map([['1F34E', apple]]))).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 72 72">/);
+  });
   it('names a picture it was not given', () => {
     expect(() => composeSvg({ layers: [{ hex: '1F600', x: 0, y: 0, size: 72 }] }, new Map())).toThrow('no picture for 1F600');
+  });
+});
+
+describe('parseSources', () => {
+  it('accepts art/openmoji.json, and names an entry with a typo or a missing number', () => {
+    const real = parseSources(JSON.parse(readFileSync(new URL('../../art/openmoji.json', import.meta.url), 'utf8')));
+    expect(Object.keys(real).length).toBeGreaterThan(100);
+    expect(() => parseSources({ 'bins/x.svg': { layer: [{ hex: '1F9FA', x: 0, y: 0, size: 72 }] } })).toThrow('bins/x.svg');
+    expect(() => parseSources({ 'bins/x.svg': { layers: [{ hex: '1F9FA', x: 0, y: 0 }] } })).toThrow('size');
+    expect(() => parseSources({ 'apple.svg': '1F34E' })).toThrow('not a picture path');
   });
 });
 

@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { composeSvg, hexesOf, OPENMOJI_VERSION, openMojiUrl, type ArtSource } from './art/compose';
+import { composeSvg, hexesOf, OPENMOJI_VERSION, openMojiUrl, parseSources } from './art/compose';
 
 const args = process.argv.slice(2);
 const unknown = args.filter((a) => a !== '--force');
@@ -14,14 +14,19 @@ if (unknown.length > 0) {
 }
 const force = args.includes('--force');
 
-const sources = JSON.parse(readFileSync(new URL('../art/openmoji.json', import.meta.url), 'utf8')) as Record<string, ArtSource>;
+const sources = parseSources(JSON.parse(readFileSync(new URL('../art/openmoji.json', import.meta.url), 'utf8')));
 const ART = fileURLToPath(new URL('../public/art/', import.meta.url));
 
 const pictures = new Map<string, string>();
-async function fetchPicture(hex: string): Promise<void> {
+async function fetchPicture(hex: string, path: string): Promise<void> {
   if (pictures.has(hex)) return;
-  const res = await fetch(openMojiUrl(hex));
-  if (!res.ok) throw new Error(`OpenMoji ${hex}: HTTP ${res.status} from ${openMojiUrl(hex)}`);
+  let res: Response;
+  try {
+    res = await fetch(openMojiUrl(hex), { signal: AbortSignal.timeout(30_000) });
+  } catch (e) {
+    throw new Error(`OpenMoji ${hex} for ${path}: ${(e as Error).message} (behind a proxy, set NODE_USE_ENV_PROXY=1)`, { cause: e });
+  }
+  if (!res.ok) throw new Error(`OpenMoji ${hex} for ${path}: HTTP ${res.status} from ${openMojiUrl(hex)}`);
   pictures.set(hex, await res.text());
 }
 
@@ -29,7 +34,7 @@ let written = 0;
 for (const [path, source] of Object.entries(sources)) {
   const file = ART + path;
   if (existsSync(file) && !force) continue;
-  for (const hex of hexesOf(source)) await fetchPicture(hex);
+  for (const hex of hexesOf(source)) await fetchPicture(hex, path);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, typeof source === 'string' ? (pictures.get(source) as string) : composeSvg(source, pictures));
   written += 1;
