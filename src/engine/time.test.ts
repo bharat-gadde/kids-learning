@@ -1,6 +1,7 @@
 // src/engine/time.test.ts
 import { describe, it, expect } from 'vitest';
-import { blockFor, greetingLineFor } from './time';
+import { readPack } from './content/readPackFromDisk';
+import { blockFor, greetingLineFor, type DayBlock } from './time';
 
 const at = (h: number, m = 0) => new Date(2026, 9, 1, h, m);
 
@@ -20,5 +21,12 @@ describe('greetingLineFor', () => {
   it('names the greeting line for a block', () => {
     expect(greetingLineFor('morning')).toBe('buddy.greet_morning');
     expect(greetingLineFor('evening')).toBe('buddy.greet_evening');
+  });
+
+  it('names a line the content pack has, for every block', () => {
+    const pack = readPack();
+    for (const block of ['morning', 'afternoon', 'evening'] as const satisfies readonly DayBlock[]) {
+      expect(pack.lines.has(greetingLineFor(block)), block).toBe(true);
+    }
   });
 });
