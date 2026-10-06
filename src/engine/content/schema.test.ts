@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DifficultySchema, GlyphSchema, LineSchema, MECHANICS, ObjectItemSchema, QuerySchema, RawPackSchema, ScenarioSchema,
-  TemplateSchema,
+  TemplateSchema, TopicSchema,
 } from './schema';
 
 const template = {
@@ -92,6 +92,14 @@ describe('GlyphSchema', () => {
     const b = { id: 'b', char: 'b', kind: 'letter', pairKey: 'b', lineId: 'glyph.letter.b' };
     expect(GlyphSchema.safeParse(b).success).toBe(false);
     expect(GlyphSchema.safeParse({ ...b, case: 'lower' }).success).toBe(true);
+  });
+});
+
+describe('TopicSchema', () => {
+  it('takes a picture or one or two letters as its signpost, or none', () => {
+    const topic = { id: 't', subject: 'literacy', title: 'T', goals: [{ id: 'g', title: 'G' }] };
+    for (const asset of [undefined, 'topics/rhyming.svg', 'glyph:A', 'glyph:Aa']) expect(TopicSchema.safeParse({ ...topic, asset }).success, asset).toBe(true);
+    for (const asset of ['', 'glyph:', 'glyph:Letters']) expect(TopicSchema.safeParse({ ...topic, asset }).success, asset).toBe(false);
   });
 });
 

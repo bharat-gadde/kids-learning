@@ -87,8 +87,8 @@ export const TopicSchema = z.strictObject({
   subject: z.enum(SUBJECTS),
   title: z.string().min(1),
   goals: z.array(GoalSchema).min(1),
-  /** the topic's signpost on the Map: a picture path, or `glyph:<text>` drawn as letters */
-  asset: z.string().min(1).optional(),
+  /** the topic's signpost on the Map: a picture path, or `glyph:` and one or two letters drawn as text (no reading needed) */
+  asset: z.string().min(1).refine((a) => !a.startsWith('glyph:') || /^glyph:.{1,2}$/u.test(a), 'a glyph signpost is one or two letters, e.g. glyph:Aa').optional(),
 });
 export type Topic = z.infer<typeof TopicSchema>;
 
