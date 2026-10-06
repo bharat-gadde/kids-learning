@@ -20,7 +20,7 @@ export function segmentLine(lineId: string, variant: number, text: string): Segm
   let textIndex = 0;
   let cursor = 0;
   const pushText = (raw: string) => {
-    const trimmed = raw.trim();
+    const trimmed = raw.replace(/^[\s.,;:!?]+/, '').trim(); // "? Tap it" → "Tap it": the "?" ended the sentence before the slot
     if (!HAS_WORDS.test(trimmed)) return;
     out.push({ kind: 'text', text: trimmed, clipId: clipIdFor(lineId, variant, textIndex++) });
   };
@@ -49,8 +49,9 @@ export function allTextClips(pack: ContentPack): TextClip[] {
       }
     });
   }
+  // Only count and give-count rules fill {targets}, and they draw countable objects alone (generator/rules.ts).
   for (const o of pack.objects.values()) {
-    if (o.plural || o.tags.countable) clips.push({ clipId: pluralClipId(o.lineId), text: pluralOf(o), lineId: o.lineId });
+    if (o.tags.countable) clips.push({ clipId: pluralClipId(o.lineId), text: pluralOf(o), lineId: o.lineId });
   }
   return clips;
 }

@@ -23,6 +23,16 @@ describe('segmentLine', () => {
   it('returns a single text segment for a plain line', () => {
     expect(segmentLine('fb.correct', 2, 'Well done!')).toEqual([{ kind: 'text', text: 'Well done!', clipId: 'fb.correct.v2.s0' }]);
   });
+
+  it('strips the punctuation that ended the sentence before a slot, and keeps digits', () => {
+    expect(segmentLine('x', 0, 'Which face is {target}? Tap it')).toEqual([
+      { kind: 'text', text: 'Which face is', clipId: 'x.v0.s0' },
+      { kind: 'slot', name: 'target' },
+      { kind: 'text', text: 'Tap it', clipId: 'x.v0.s1' },
+    ]);
+    expect(segmentLine('x', 0, '{n} + 2')).toEqual([{ kind: 'slot', name: 'n' }, { kind: 'text', text: '+ 2', clipId: 'x.v0.s0' }]);
+    expect(segmentLine('x', 0, 'Say "{target}"')).toEqual([{ kind: 'text', text: 'Say "', clipId: 'x.v0.s0' }, { kind: 'slot', name: 'target' }]);
+  });
 });
 
 describe('ids', () => {
@@ -33,15 +43,30 @@ describe('ids', () => {
 });
 
 describe('allTextClips', () => {
-  it('lists every text segment of every variant plus plural clips for countable or irregular objects', () => {
-    const pack = readPack();
-    const clips = allTextClips(pack);
-    const ids = new Set(clips.map((c) => c.clipId));
-    expect(ids.has('prompt.tap_big.v0.s0')).toBe(true);
-    expect(ids.has('obj.apple.v0.s0')).toBe(true);
-    expect(ids.has('obj.mango.plural')).toBe(true);
-    expect(clips.find((c) => c.clipId === 'obj.mango.plural')?.text).toBe('mangoes');
-    expect(ids.has('obj.soap.plural')).toBe(false); // not countable, no irregular plural
+  const pack = readPack();
+  const clips = allTextClips(pack);
+  const ids = new Set(clips.map((c) => c.clipId));
+  const has = (id: string) => expect(ids.has(id), id).toBe(true);
+
+  it('lists every text segment of every variant once, plus plural clips for countable objects', () => {
+    has('prompt.tap_big.v0.s0');
+    has('prompt.tap_letter.v1.s0'); // a later variant
+    has('prompt.tap_big.v1.s1'); // a segment after a slot
+    has('obj.apple.v0.s0');
+    expect(clips.find((c) => c.clipId === 'obj.apple.plural')?.text).toBe('apples'); // regular plural
+    expect(clips.find((c) => c.clipId === 'obj.mango.plural')?.text).toBe('mangoes'); // irregular plural
+    expect(ids.has('obj.milk.plural')).toBe(false); // not countable: no rule fills {targets} with it
     expect(ids.size).toBe(clips.length);
+    expect(clips.every((c) => pack.lines.has(c.lineId))).toBe(true);
+  });
+
+  it('covers every clip AudioManager can ask for', () => {
+    for (const line of pack.lines.values()) {
+      line.variants.forEach((text, v) => {
+        for (const seg of segmentLine(line.id, v, text)) if (seg.kind === 'text') has(seg.clipId);
+      });
+    }
+    for (const item of [...pack.objects.values(), ...pack.glyphs.values()]) has(clipIdFor(item.lineId, 0, 0));
+    for (const o of pack.objects.values()) if (o.tags.countable) has(pluralClipId(o.lineId));
   });
 });
