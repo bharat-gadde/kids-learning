@@ -21,10 +21,13 @@ function roundDetails(round: Round): AttemptDetails {
   };
 }
 
-/** Build the attempt record for a round the child just finished. */
+/** Build the attempt record for a round the child just finished. `wrongIds` (what was picked wrongly) is kept when there is any. */
 export function attemptFromRound(
   round: Round,
-  result: { profileId: string; sessionIndex: number; at: number; outcome: Outcome; hints: number; durationMs: number },
+  result: {
+    profileId: string; sessionIndex: number; at: number; outcome: Outcome; hints: number; durationMs: number;
+    wrongIds?: readonly string[];
+  },
 ): Omit<Attempt, 'id'> {
   return {
     profileId: result.profileId,
@@ -40,7 +43,7 @@ export function attemptFromRound(
     outcome: result.outcome,
     hints: result.hints,
     durationMs: result.durationMs,
-    details: roundDetails(round),
+    details: { ...roundDetails(round), ...(result.wrongIds?.length ? { wrongIds: [...result.wrongIds] } : {}) },
   };
 }
 

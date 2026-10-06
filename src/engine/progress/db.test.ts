@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createDb, createProfile, listProfiles, startSession, recordAttempt, recordSetResult,
-  attemptsForGoal, attemptsForProfile, setResultsForTemplate, getSettings, saveSettings, type BuddyDB,
+  attemptsForGoal, attemptsForProfile, setResultsForTemplate, getSettings, saveSettings, addSticker, stickersForProfile,
+  lastRecordedAt, type BuddyDB,
 } from './db';
 import { defaultSettings, type Attempt, type Settings } from './types';
 
@@ -98,6 +99,31 @@ describe('attempts and set results', () => {
     await recordSetResult(db, { ...result, profileId: b.id, at: 3, correct: 6 });
     await recordSetResult(db, { ...result, profileId: a.id, at: 1, correct: 1 });
     expect((await setResultsForTemplate(db, a.id, 'x')).map((r) => r.correct)).toEqual([1, 2]);
+  });
+});
+
+describe('stickers', () => {
+  it("keeps every sticker and reads a profile's back in the order earned, and no other profile's", async () => {
+    const a = await createProfile(db, { name: 'A', buddy });
+    const b = await createProfile(db, { name: 'B', buddy });
+    await addSticker(db, { profileId: a.id, at: 30, pictureId: 'objects/cat.svg', source: 'rhyming.match', shiny: false });
+    await addSticker(db, { profileId: b.id, at: 20, pictureId: 'objects/dog.svg', source: 'cvc.hear', shiny: false });
+    await addSticker(db, { profileId: a.id, at: 10, pictureId: 'glyph:b', source: 'letters.tap', shiny: true });
+    expect((await stickersForProfile(db, a.id)).map((s) => s.pictureId)).toEqual(['glyph:b', 'objects/cat.svg']);
+  });
+});
+
+describe('lastRecordedAt', () => {
+  it("is the latest attempt or set result of this profile, or 0", async () => {
+    const a = await createProfile(db, { name: 'A', buddy });
+    const b = await createProfile(db, { name: 'B', buddy });
+    expect(await lastRecordedAt(db, a.id)).toBe(0);
+    await recordAttempt(db, attempt(a.id, 50));
+    await recordAttempt(db, attempt(b.id, 900));
+    await recordSetResult(db, { profileId: a.id, at: 70, sessionIndex: 1, templateId: 'big-small.tap', goalId: 'big-small.identify', level: 1, correct: 6, total: 6 });
+    expect(await lastRecordedAt(db, a.id)).toBe(70);
+    await recordAttempt(db, attempt(a.id, 80));
+    expect(await lastRecordedAt(db, a.id)).toBe(80);
   });
 });
 

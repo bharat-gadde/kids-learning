@@ -102,6 +102,27 @@ export async function setResultsForTemplate(db: BuddyDB, profileId: string, temp
   return rows.sort((a, b) => a.at - b.at);
 }
 
+/** Spec §4.6: a sticker earned; nothing ever removes one. */
+export async function addSticker(db: BuddyDB, sticker: Omit<Sticker, 'id'>): Promise<number | undefined> {
+  return db.stickers.add(sticker);
+}
+
+/** Every sticker this profile has earned, oldest first (by `at`): the order they went into the book. */
+export async function stickersForProfile(db: BuddyDB, profileId: string): Promise<Sticker[]> {
+  const rows = await db.stickers.where('profileId').equals(profileId).toArray();
+  return rows.sort((a, b) => a.at - b.at);
+}
+
+/** The latest `at` recorded for this profile (attempts and set results), or 0: a new session's clock starts after it. */
+export async function lastRecordedAt(db: BuddyDB, profileId: string): Promise<number> {
+  const mine = (row: { profileId: string }) => row.profileId === profileId;
+  const [attempt, set] = await Promise.all([
+    db.attempts.orderBy('at').reverse().filter(mine).first(),
+    db.setResults.orderBy('at').reverse().filter(mine).first(),
+  ]);
+  return Math.max(attempt?.at ?? 0, set?.at ?? 0);
+}
+
 export async function getSettings(db: BuddyDB, profileId: string): Promise<Settings> {
   // a field added to Settings later has its default for profiles saved before it
   return { ...defaultSettings(profileId), ...(await db.settings.get(profileId)) };

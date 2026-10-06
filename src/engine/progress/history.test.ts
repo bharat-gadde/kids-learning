@@ -30,6 +30,23 @@ describe('attemptFromRound', () => {
   });
 });
 
+describe('attemptFromRound with wrong picks', () => {
+  it('keeps what the child picked wrongly, and the round still replays', async () => {
+    const round = generateSet(pack, pack.templates.get('letters.tap')!, { seed: 9, level: 2, history: EMPTY_HISTORY })[0]!;
+    const p = round.payload;
+    if (p.kind !== 'choose') throw new Error('expected choose');
+    const wrong = p.options.find((o) => !p.correctIds.includes(o.id))!.id;
+    const base = { profileId, sessionIndex: 1, at: 1, outcome: 'corrected' as const, hints: 1, durationMs: 900 };
+    const a = attemptFromRound(round, { ...base, wrongIds: [wrong] });
+    expect(a.details?.wrongIds).toEqual([wrong]);
+    expect(attemptFromRound(round, { ...base, wrongIds: [] }).details).not.toHaveProperty('wrongIds');
+    expect(attemptFromRound(round, base).details).not.toHaveProperty('wrongIds');
+    await recordAttempt(db, a);
+    const attempts = await attemptsForGoal(db, profileId, round.goalId);
+    expect(replayRound(pack, attempts, attempts[0]!)).toEqual(round);
+  });
+});
+
 describe('replayRound', () => {
   it('generates every recorded round again from its attempt and the attempts before its set (spec §5.4, §14)', async () => {
     const template = pack.templates.get('big-small.tap')!;
