@@ -82,5 +82,7 @@
   { "id": "buddy.greet_afternoon", "variants": ["Hello, {name}! Good afternoon!"] },
   { "id": "buddy.greet_evening", "variants": ["Good evening, {name}!", "Hi {name}! What a lovely evening!"] },
   { "id": "buddy.replay_hint", "variants": ["Tap the speaker to hear it again"] },
-  { "id": "buddy.bridge", "variants": ["Remember how you did this before? Let's do it that way again!"] }
+  { "id": "buddy.bridge", "variants": ["Remember how you did this before? Let's do it that way again!"] },
+  { "id": "buddy.suggest", "variants": ["Let's play here!", "How about this one?", "Shall we play this one?"] },
+  { "id": "fb.your_turn_again", "variants": ["Again?", "One more time?"] }
 ]

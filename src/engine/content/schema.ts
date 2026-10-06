@@ -87,6 +87,8 @@ export const TopicSchema = z.strictObject({
   subject: z.enum(SUBJECTS),
   title: z.string().min(1),
   goals: z.array(GoalSchema).min(1),
+  /** the topic's signpost on the Map: a picture path, or `glyph:<text>` drawn as letters */
+  asset: z.string().min(1).optional(),
 });
 export type Topic = z.infer<typeof TopicSchema>;
 
