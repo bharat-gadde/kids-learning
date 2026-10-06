@@ -207,14 +207,14 @@ Every template is one data file with these fields:
 
 ### 5.4 Round generation and variation rules (mandatory)
 
-The generator is deterministic from `(template, seed, profile history)` so any round can be replayed.
+The generator is deterministic from `(template, seed, level, profile history)` so any round can be replayed.
 
-1. **Sampling without recent repeats:** items not used for this goal in the last 3 sessions are preferred; distractors likewise.
+1. **Sampling without recent repeats:** items not used for this goal in this session or the 3 before it are preferred; distractors likewise (not yet: Plan 1A applies the rule to the key items only).
 2. **Position shuffle:** the correct answer's slot may repeat once but never three times running, and it only goes to a slot at most one use ahead of the least-used (always taking the least-used slot would make every second two-option round predictable).
 3. **Wording variants:** each line has 2–4 phrasings sharing the key word ("Tap the biggest car" / "Which car is the biggest?" / "Find the biggest car").
-4. **Scene variants:** the background changes every set.
-5. **Mechanic rotation:** when a topic is played on consecutive days, a different template (mechanic) is chosen than last time, if the topic has more than one.
-6. **Interleaving:** Buddy's suggestion alternates islands and prefers shaky goals; the picker never queues the same topic twice in a row.
+4. **Scene variants:** each set's background differs from the last set of the same goal (a set of another game may share it).
+5. **Mechanic rotation:** whenever a topic is played again, a different template (mechanic) is chosen than last time, if the topic has more than one.
+6. **Interleaving:** Buddy's suggestion is never on the island just played (while another island has a spot) nor the topic just played, and prefers shaky goals.
 7. **Difficulty ramp:** per template, level rises after two consecutive sets at ≥ 85% correct, falls after a set at ≤ 50%. Level changes also change the *kind* of variation (2 → 3 → 4 options; obvious → subtle distractors; counts 1–5 → 1–10; pattern unit 2 → 3).
 
 ### 5.5 Mastery by form, and bridging
@@ -225,7 +225,7 @@ The generator is deterministic from `(template, seed, profile history)` so any r
   - **mastered** — ≥ 80% correct *and* ≥ 3 distinct forms, each with at least one correct
   - **shaky** — otherwise
   - **needs practice** — < 50% correct over ≥ 4 attempts
-- **Bridging:** when an attempt in a form with no prior success ends as *shown* or *corrected*, the next round for that goal uses a form with prior success (if any) and Buddy links them aloud ("Remember the big elephant? Now find the big ball!"), then the new form returns the round after.
+- **Bridging:** when an attempt in a form with no prior success ends as *shown* or *corrected*, the next set for that goal uses a form with prior success (if any) and Buddy links them aloud ("Remember the big elephant? Now find the big ball!"), then the new form returns the set after (a set plays one template, so one form).
 - The parent corner shows status, forms attempted, and the specific confusions (e.g. b/d, 6/9, tall vs big).
 
 ### 5.6 Levels
@@ -379,7 +379,7 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 
 ## 7. Audio system
 
-- **Line IDs.** Every spoken line in the game has an id in the `lines` pool. The audio player resolves an id through the chain **Heart → AI clip → device TTS** and plays the first available. Lines with slots (the child's name, an object name) are built from a clip plus TTS for the slot, or TTS entirely if no clip exists.
+- **Line IDs.** Every spoken line in the game has an id in the `lines` pool. The audio player resolves an id through the chain **Heart → AI clip → device TTS** and plays the first available. Lines with slots are spliced segment by segment: the text and any object or number name from their clips, the child's and Buddy's names by TTS; a missing or stale clip falls back to TTS for its segment alone.
 - **Heart layer (after v1):** the parent records short lines in the parent corner; stored on device per profile.
 - **AI clip layer:** every line generated once in a warm, slow, clear, neutral-English child-friendly voice; shipped as small compressed clips; regenerated when a line's text changes (the content validator flags stale clips).
 - **Device TTS layer:** the platform speech engine; English voice; rate slightly slower than default. Also the only layer that can speak unforeseen text.
@@ -425,8 +425,8 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 | Entity | Fields |
 |---|---|
 | Profile | id · name · level · Buddy (colour, name, accessory) · createdAt · settings overrides |
-| Session | profileId · index (1, 2, 3… per profile; the "last 3 sessions" of §5.4 rule 1) · startedAt |
-| Attempt | profileId · timestamp · session index · templateId · goalId · mechanic · form · seed · outcome (correct / corrected / shown) · hints · duration · details (e.g. write score components) |
+| Session | profileId · index (1, 2, 3… per profile; the session window of §5.4 rule 1) · startedAt |
+| Attempt | profileId · timestamp · session index · templateId · topicId · goalId · mechanic · form · seed (the set's) · level · outcome (correct / corrected / shown) · hints · duration · details (the round's place in its set, item ids, slot, scene, wording, payload hash; e.g. write score components) |
 | SetResult | profileId · timestamp · session index · templateId · goalId · level · correct · total (a finished set; the difficulty ramp of §5.4 rule 7) |
 | RoutineEvent | profileId · timestamp · sceneId · completed · selfReport (yes / not yet / skipped) · randomEventId |
 | CheckIn | profileId · timestamp · feeling · breathTaken |
@@ -501,7 +501,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 
 | Layer | What is verified | How |
 |---|---|---|
-| Round generator & variation rules | the correct answer never sits in one slot three times running, and only goes to a slot at most one use ahead of the least-used; no item repeats within 3 sessions for a goal; mechanic rotation on consecutive days; difficulty ramps up/down as specified; determinism from seed | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
+| Round generator & variation rules | the correct answer never sits in one slot three times running, and only goes to a slot at most one use ahead of the least-used; no item repeats within 3 sessions for a goal; mechanic rotation whenever a topic is played again; difficulty ramps up/down as specified; determinism from seed, level and history (every recorded round replays) | automated tests on seeded rounds, including property-style checks over thousands of generated rounds |
 | Mastery & bridging | status transitions; ≥ 3 forms required; bridging picks a known-good form after a miss on a new form | automated tests over synthetic histories |
 | Audio chain | every line id resolves; name splicing; fallback order; stale-clip detection | automated tests + content validation |
 | Content validation | every template references existing pools, assets, lines; each topic meets its variant minimum; every glyph has a reference path and zone rule; every line has a clip or TTS text | runs on every change; the build fails on errors |
@@ -509,7 +509,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 | Write scorer | a "golden strokes" set per glyph: great / nearly / poor samples, including placement errors (body letter written in the ascender zone; descender not reaching the bottom red) | automated tests against the golden set |
 | Devices | iPad Safari: pencil, palm rejection, pressure, audio unlock, home-screen install, offline launch; Android Chrome tablet; one phone layout pass | manual checklist per milestone |
 | Performance | smooth animation on the reference tablets; island pack size limits | automated size checks; manual frame checks |
-| Playtest with the child | can start alone; understands prompts without reading; replays a game willingly; "your turn" lands; frustration points; routine completion without help | short checklist per milestone; a debug seed reproduces any round she struggled with |
+| Playtest with the child | can start alone; understands prompts without reading; replays a game willingly; "your turn" lands; frustration points; routine completion without help | short checklist per milestone; `replayRound` regenerates any round she struggled with from its stored attempt |
 
 ---
 
