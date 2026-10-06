@@ -67,15 +67,16 @@ describe('readRawPack', () => {
     for (const [name, body] of Object.entries(templateFiles)) writeFileSync(join(dir, 'templates', name), body);
   }
 
-  it('flattens template files in file-name order, skipping non-JSON files and dotfiles', () => {
+  it('flattens template files in code-unit file-name order (as Vite sorts its glob), skipping non-JSON files and dotfiles', () => {
     fixture({
       'b.json': JSON.stringify([{ id: 'b1' }, { id: 'b2' }]),
       'a.json': JSON.stringify([{ id: 'a1' }]),
+      'C.json': JSON.stringify([{ id: 'c1' }]), // before 'a' by code unit; localeCompare would put it last
       'notes.txt': 'not json',
       '._a.json': 'macOS resource-fork junk',
     });
     const raw = readRawPack(dir) as { templates: Array<{ id: string }> };
-    expect(raw.templates.map((t) => t.id)).toEqual(['a1', 'b1', 'b2']);
+    expect(raw.templates.map((t) => t.id)).toEqual(['c1', 'a1', 'b1', 'b2']);
   });
 
   it('names the file in a JSON syntax error', () => {

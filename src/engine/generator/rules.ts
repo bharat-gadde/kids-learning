@@ -291,6 +291,22 @@ function buildGiveCount(ctx: RuleContext): RuleResult {
   };
 }
 
+/**
+ * Rhyme groups for a low-similarity level (spec §5.4 rule 7: obvious distractors first): no two end in the same letter,
+ * so level 1 never sets -an beside -en, or -og beside -ug, where only the vowel tells the pairs apart (a rhymeGroup is
+ * spelled as its rime). One at a time, each still preferring groups the recent rounds left out; when every group left
+ * shares an ending with one already chosen, any unused group fills in.
+ */
+function sampleUnlikeRhymes<T extends { id: string }>(ctx: RuleContext, usable: readonly T[], k: number): T[] {
+  const chosen: T[] = [];
+  for (let i = 0; i < k; i++) {
+    const unused = usable.filter((g) => !chosen.includes(g));
+    const unlike = unused.filter((g) => !chosen.some((c) => c.id.at(-1) === g.id.at(-1)));
+    chosen.push(...sampleWithoutRecent(ctx.rng, unlike.length > 0 ? unlike : unused, 1, ctx.avoid));
+  }
+  return chosen;
+}
+
 function buildPair(ctx: RuleContext): RuleResult {
   const rule = ctx.template.rule;
   if (rule.kind !== 'pair') throw new GenerationError('not a pair rule');
@@ -304,7 +320,7 @@ function buildPair(ctx: RuleContext): RuleResult {
       if (typeof g === 'string') groups.set(g, [...(groups.get(g) ?? []), c]);
     }
     const usable = [...groups.entries()].filter(([, members]) => members.length >= 2).map(([id, members]) => ({ id, members }));
-    const chosen = sampleWithoutRecent(ctx.rng, usable, k, ctx.avoid);
+    const chosen = ctx.difficulty.distractorSimilarity === 'low' ? sampleUnlikeRhymes(ctx, usable, k) : sampleWithoutRecent(ctx.rng, usable, k, ctx.avoid);
     const left: RoundItem[] = [];
     const right: RoundItem[] = [];
     const pairs: Array<[string, string]> = [];

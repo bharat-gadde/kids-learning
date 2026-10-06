@@ -5672,6 +5672,7 @@ The task text above is kept as written; where execution differed, the change is 
 
 **Task 23 — wrap-up**
 - The README's status line now names the engine plan and Plan 1B as next, and its intro no longer gives Buddy a pronoun (the child names Buddy; the content keeps Buddy ungendered).
+- Final review: rhyme pairs at level 1 never share an ending (`sampleUnlikeRhymes` in rules.ts). 19% of level-1 rhyme rounds set -an beside -en or -og beside -ug, where only the vowel tells the pairs apart (spec §5.4 rule 7: obvious distractors first); levels 2–3 are unchanged, and about 2% of level-1 sets now reuse one more group. `load.test.ts` adds a capital file name, pinning the code-unit order that Vite's glob also uses. One more test (234).
 
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).

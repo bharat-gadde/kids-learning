@@ -161,6 +161,17 @@ describe('pair', () => {
     expect(new Set(groups).size).toBe(4);
     expect(r.itemIds.sort()).toEqual([...groups].sort());
   });
+
+  it('rhymeGroup at level 1: no two groups end alike, so the vowel alone never tells the pairs apart', () => {
+    const all = [...new Set([...pack.objects.values()].map((o) => o.tags.rhymeGroup).filter((g) => g !== undefined))];
+    for (let seed = 0; seed < 200; seed++) {
+      for (const avoid of [[], all]) { // fresh groups, and the stale fallback once every group was used lately
+        const endings = buildPayload(ctx('rhyming.match', seed, 1, avoid)).itemIds.map((g) => g.at(-1));
+        expect(endings).toHaveLength(2);
+        expect(new Set(endings).size).toBe(2);
+      }
+    }
+  });
 });
 
 describe('sequence', () => {
