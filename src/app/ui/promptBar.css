@@ -1,0 +1,4 @@
+/* src/app/ui/promptBar.css */
+.prompt-bar { display: flex; align-items: center; gap: 14px; padding: 6px 18px 6px 6px; min-height: var(--target); flex: 1; min-width: 0; }
+.prompt-bar__replay { flex: none; }
+.prompt-bar__caption { margin: 0; font-size: clamp(18px, 2.6vw, 28px); line-height: 1.2; }

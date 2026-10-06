@@ -1,0 +1,5 @@
+/* src/app/ui/picture.css */
+.picture { display: inline-block; object-fit: contain; pointer-events: none; flex: none; }
+.picture--glyph { display: inline-grid; place-items: center; font-family: var(--font); font-weight: 700; line-height: 1; color: var(--ink); }
+.picture--missing { border-radius: 18%; background: var(--paper-deep); border: 3px dashed var(--line); box-sizing: border-box; }
+.group { display: inline-grid; gap: 4px; place-items: center; }

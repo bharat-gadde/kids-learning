@@ -1,0 +1,4 @@
+/* src/app/ui/progressDots.css */
+.progress-dots { display: flex; gap: 10px; align-items: center; padding: 0 6px; }
+.progress-dots__dot { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--ink-soft); box-sizing: border-box; transition: background-color 0.3s, transform 0.3s; }
+.progress-dots__dot.is-done { background: var(--glow); border-color: #c99a14; transform: scale(1.15); }
