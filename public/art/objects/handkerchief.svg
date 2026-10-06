@@ -1,11 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
   <g id="color">
-    <path fill="#92d3f5" d="M36 10l26 26-26 26-26-26z"/>
-    <path fill="#61b2e4" d="M23 23l26 26M30 16l26 26M16 30l26 26" opacity="0"/>
-    <path fill="#fff" d="M36 10l9 9-9 9-9-9z"/>
+    <path fill="#fff" d="M12 12h48v34L46 60H12z"/>
+    <path fill="#92d3f5" d="M12 22h48v7H12zM12 40h48v7H12zM22 12h7v48h-7zM40 12h7v48h-7z"/>
+    <path fill="#61b2e4" d="M22 22h7v7h-7zM40 22h7v7h-7zM22 40h7v7h-7zM40 40h7v7h-7z"/>
+    <path fill="#d0cfce" d="M60 46L46 60V46z"/>
   </g>
   <g id="line" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-    <path d="M36 10l26 26-26 26-26-26z"/>
-    <path d="M36 28l-9-9M36 28l9-9M23 23l26 26M49 23L23 49M16 30l26 26M56 30L30 56M30 16l26 26M42 16L16 42"/>
+    <path d="M12 12h48v34L46 60H12z"/>
+    <path d="M60 46H46v14"/>
   </g>
 </svg>

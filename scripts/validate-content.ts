@@ -1,5 +1,6 @@
 // scripts/validate-content.ts
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readPack } from '../src/engine/content/readPackFromDisk';
 import { assetPaths } from '../src/engine/content/assets';
@@ -37,10 +38,15 @@ if (existsSync(MANIFEST)) {
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as ClipManifest;
   for (const id of staleClips(pack, manifest)) issues.push({ level: 'warning', where: `clip ${id}`, message: 'its line changed since the clip was generated; run npm run voice' });
 }
-// spec §14: every picture the content refers to is in public/art (a missing one would show a blank stand-in)
+// spec §14: every picture the content refers to is in public/art (a missing one would show a blank stand-in).
+// Names are matched exactly against a listing: macOS's file system ignores case, GitHub Pages does not.
 const ART = fileURLToPath(new URL('../public/art/', import.meta.url));
+const artFiles = new Set(existsSync(ART) ? readdirSync(ART, { recursive: true, encoding: 'utf8' }).map((p) => p.split(sep).join('/')) : []);
+const openmoji = JSON.parse(readFileSync(fileURLToPath(new URL('../art/openmoji.json', import.meta.url)), 'utf8')) as Record<string, unknown>;
 for (const asset of assetPaths(pack)) {
-  if (!existsSync(ART + asset)) issues.push({ level: 'error', where: `picture ${asset}`, message: 'no such file in public/art (npm run art fetches the OpenMoji ones)' });
+  if (artFiles.has(asset)) continue;
+  const fix = Object.hasOwn(openmoji, asset) ? 'npm run art fetches it' : 'draw it, or list its OpenMoji code in art/openmoji.json: see art/README.md';
+  issues.push({ level: 'error', where: `picture ${asset}`, message: `no such file in public/art (${fix})` });
 }
 const errors = issues.filter((i) => i.level === 'error');
 const warnings = issues.filter((i) => i.level === 'warning');
