@@ -5,10 +5,11 @@ import type { SetResult } from './types';
 /**
  * Spec §5.4 rule 7: the level for a template's next set. Replays all of the template's set results in time order from
  * level 1, so pass every one of them (setResultsForTemplate), not the latest few:
- * a set at ≤50% lowers the level (min 1); otherwise, when this set and the one before it at this level reach ≥85%
- * together — their correct rounds over their rounds — the level rises (max 3). A rise or a fall starts afresh.
+ * a set at ≤50% lowers the level (min 1) and is never paired, at level 1 too; otherwise, when this set and the one
+ * before it at this level reach ≥85% together — their correct rounds over their rounds — the level rises (max 3).
+ * A rise, or a set at ≤50%, starts afresh.
  * Judged together because M1's sets are 2–6 rounds, where "each of two sets at ≥85%" meant two perfect sets; together,
- * one slip across two 4–6-round sets still rises (parent decision, 2026-10-06).
+ * one slip across two sets of 4 or more rounds still rises (parent decision, 2026-10-06).
  * A set recorded at another level than the replay has reached (under other rules, say) is skipped and starts afresh;
  * a set with no rounds played is skipped.
  */

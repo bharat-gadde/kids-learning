@@ -44,6 +44,8 @@ describe('levelFor', () => {
     expect(levelFor([set(1, 6), set(1, 6), set(2, 6), set(2, 6), set(3, 3)])).toBe(2); // one level at a time
     expect(levelFor([set(1, 6), set(1, 6), set(2, 5, 9)])).toBe(2); // 56% does not drop
     expect(levelFor([set(1, 6), set(1, 6), set(2, 10, 10), set(2, 1, 2)])).toBe(1); // 11 of 12 together, but 1 of 2
+    expect(levelFor([set(1, 6), set(1, 3), set(1, 6)])).toBe(1); // at level 1 too: the 3 of 6 comes between the two good sets
+    expect(levelFor([set(1, 1, 2), set(1, 10, 10)])).toBe(1); // a set at ≤50% is never paired: 11 of 12 together, but 1 of 2
   });
 
   it('starts afresh after a rise and after a fall', () => {
@@ -54,6 +56,7 @@ describe('levelFor', () => {
   it('ignores a set with no rounds played', () => {
     expect(levelFor([set(1, 6), set(1, 6), set(2, 0, 0)])).toBe(2);
     expect(levelFor([set(1, 6), set(1, 0, 0), set(1, 6)])).toBe(2); // it does not separate the two sets either
+    expect(levelFor([set(1, 6), set(1, 0, 0)])).toBe(1); // nor is it the second of two
   });
 
   it('judges a middling set together with the next one', () => {
