@@ -5667,6 +5667,12 @@ The task text above is kept as written; where execution differed, the change is 
 - `assertConfig` refuses a region that is not a bare name (an endpoint URL pasted from the portal would send the key to another host) and a key with spaces or control characters (fetch quotes an invalid header value, key included, in its error); an empty 200 is an error rather than a clip saved as up to date; `xml:lang` follows the voice name (`voiceLocale`), attribute values are escaped, and `OUTPUT_FORMAT` is exported for the clip hash.
 - 17 tests instead of 7 (the task text said 6; its blocks always held one more): the exact SSML, the POST and its headers, the voice in the hash, retries and the never-retried 401, and the config guards.
 
+**Task 22 — gen-voice and the manifest**
+- As changed for later tasks: `npm run validate` warns about each stale clip (checked with a manifest whose `fb.correct.v0.s0` text was edited: one warning, `--strict` exits 1), and `gen-voice` retries throttling, hashes voice, rate and format, and regenerates a clip whose file is missing. The dry run lists 260 clips. Its code was reviewed and simulated offline (260 clips with injected 429s and a 503) in the Task 21 review, and the validator change in the Task 17 review.
+
+**Task 23 — wrap-up**
+- The README's status line now names the engine plan and Plan 1B as next, and its intro no longer gives Buddy a pronoun (the child names Buddy; the content keeps Buddy ungendered).
+
 **Plan text changed for later tasks** (already in the task text above — not deviations)
 - Task 6: `RULES_FOR_MECHANIC` lists only the rule/mechanic pairs the generator builds a correct payload for; size-rule bins must match `large` and `small`; count rules need numeral glyphs for 0–10 and every value in each level's range; a query naming an unknown object or glyph id is an error (three more tests).
 - Task 7: the validate CLI's header reads "Content could not be loaded:" (it now also covers syntax errors and duplicate ids).
