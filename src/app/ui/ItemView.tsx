@@ -2,11 +2,15 @@
 import type { RoundItem } from '../../engine/generator/types';
 import { Picture } from './Picture';
 
-/** Columns for a counted group: easy to count at a glance (1–3 in a row, then 2 or 3 rows). */
+/**
+ * Columns for a counted group, in rows that are easy to count: 1–3 in one row; 4–8 as LKG worksheets draw them (2+2,
+ * 3+2, 3+3, 4+3, 4+4); 9 as 3×3, whose pictures are over a third bigger than 4+4+1's, with no straggler; 10 as 4+4+2
+ * (a ten-frame's 5+5 would shrink them further).
+ */
 export function groupColumns(count: number): number {
   if (count <= 3) return count;
   if (count === 4) return 2;
-  if (count <= 6) return 3;
+  if (count <= 6 || count === 9) return 3;
   return 4;
 }
 

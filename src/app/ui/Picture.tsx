@@ -18,7 +18,9 @@ const warned = new Set<string>();
 
 /** One picture (spec §13: a missing one shows a neutral stand-in and logs its path, never blocking the round). */
 export function Picture({ asset, label, size, className = '' }: PictureProps) {
-  const [missing, setMissing] = useState(false);
+  // the asset that failed, not a flag: an instance that is handed another picture (a vignette's friend changing face) tries it
+  const [failed, setFailed] = useState<string | null>(null);
+  const missing = failed === asset;
   const box = { width: size, height: size };
   if (isGlyphAsset(asset)) {
     const text = asset.slice('glyph:'.length);
@@ -41,7 +43,7 @@ export function Picture({ asset, label, size, className = '' }: PictureProps) {
       onError={() => {
         if (!warned.has(asset)) console.warn(`missing picture: ${asset}`);
         warned.add(asset);
-        setMissing(true);
+        setFailed(asset);
       }}
     />
   );

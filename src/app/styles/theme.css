@@ -8,6 +8,7 @@
   --line: rgba(61, 47, 39, 0.16);
   --good: #5c9e31;
   --glow: #ffcf3f;
+  --glow-edge: #b07d00; /* the glow's rim: yellow alone barely shows on the paper */
   --shadow: 0 3px 0 rgba(61, 47, 39, 0.1), 0 10px 22px rgba(61, 47, 39, 0.1);
   --radius: 22px;
   --target: 72px; /* the smallest thing a child taps (spec §11: at least 64 px) */
@@ -17,7 +18,9 @@
   --numeracy: #6fa8dc;
   --awareness: #4fb3a9;
   --wellness: #e98fae;
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .24 0 0 0 0 .18 0 0 0 0 .15 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* paper grain: a 160 px tile of fractal noise (an SVG feTurbulence, base frequency .85, 2 octaves, ink at 7% opacity)
+     drawn once to PNG with @resvg/resvg-js, because Safari re-runs a tiled SVG's filter on every repaint */
+  --grain: url('./grain.png');
 }
 
 html, body, #root { height: 100%; margin: 0; }
@@ -34,7 +37,8 @@ body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-button { font: inherit; color: inherit; cursor: pointer; }
+/* no browser chrome: a button looks like whatever its class draws (the drag wrappers draw nothing) */
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
 img { -webkit-user-drag: none; }
 
 .screen { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -58,11 +62,15 @@ img { -webkit-user-drag: none; }
   box-shadow: var(--shadow);
 }
 .icon-button img { width: 46px; height: 46px; pointer-events: none; }
-.icon-button:active { transform: scale(0.94); }
+.icon-button:active { scale: 0.94; } /* scale, not transform: it composes with a button's own transform (Again is scale(1.4)) */
 
-/* hint and demonstration cues on whatever a mechanic marks (spec §4.4: the answer wiggles, the right bin glows) */
-.cue-hint { animation: cue-wiggle 0.5s ease-in-out 3; box-shadow: 0 0 0 6px var(--glow), var(--shadow); }
-.cue-show { animation: cue-pulse 0.9s ease-in-out infinite; box-shadow: 0 0 0 8px var(--glow), var(--shadow); }
+/*
+ * hint and demonstration cues on whatever a mechanic marks (spec §4.4: the answer wiggles, the right bin glows).
+ * The class is doubled so the glow beats the box-shadow of what it marks (.option's loads after this file); with
+ * reduced motion the glow is the whole cue.
+ */
+.cue-hint.cue-hint { animation: cue-wiggle 0.5s ease-in-out 3; box-shadow: 0 0 0 6px var(--glow), 0 0 0 9px var(--glow-edge), var(--shadow); }
+.cue-show.cue-show { animation: cue-pulse 0.9s ease-in-out infinite; box-shadow: 0 0 0 8px var(--glow), 0 0 0 11px var(--glow-edge), var(--shadow); }
 .shake { animation: shake 0.4s ease-in-out 1; }
 @keyframes cue-wiggle { 25% { transform: rotate(-6deg) scale(1.04); } 75% { transform: rotate(6deg) scale(1.04); } }
 @keyframes cue-pulse { 50% { transform: scale(1.08); } }
@@ -71,3 +79,5 @@ img { -webkit-user-drag: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+/* the in-app setting: Plan 1C puts .reduced-motion on the root when settings.reducedMotion is on (buddy.css honours it too) */
+.reduced-motion *, .reduced-motion *::before, .reduced-motion *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
