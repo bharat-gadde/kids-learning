@@ -39,6 +39,17 @@ describe('planClips', () => {
     expect(plan.needed.some((c) => c.clipId === 'obj.banana.v0.s0')).toBe(true);
     expect(plan.orphans).toEqual(['old.line.v0.s0']);
   });
+
+  it('regenerates a clip with unchanged text when the voice changes', () => {
+    const manifest: ClipManifest = {
+      version: 1,
+      voice: VOICE,
+      clips: { 'obj.apple.v0.s0': { text: 'apple', hash: clipHash(VOICE, 'apple'), file: 'obj.apple.v0.s0.mp3' } },
+    };
+    const plan = planClips(pack, manifest, 'en-GB-SoniaNeural');
+    expect(plan.unchanged).toEqual([]);
+    expect(plan.needed.some((c) => c.clipId === 'obj.apple.v0.s0')).toBe(true);
+  });
 });
 
 describe('staleClips', () => {
