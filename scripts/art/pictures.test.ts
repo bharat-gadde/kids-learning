@@ -23,7 +23,9 @@ describe('the pictures in public/art', () => {
       const file = join(ART, path);
       expect(existsSync(file), path).toBe(true);
       if (typeof source === 'string') continue;
-      const boxes = [...readFileSync(file, 'utf8').matchAll(/<svg x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)].map((m) => m.slice(1).map(Number));
+      const svg = readFileSync(file, 'utf8');
+      expect(svg.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${source.viewBox ?? '0 0 72 72'}">${(source.shapes ?? []).join('')}`), path).toBe(true);
+      const boxes = [...svg.matchAll(/<svg x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)].map((m) => m.slice(1).map(Number));
       expect(boxes, path).toEqual(source.layers.map((l) => [l.x, l.y, l.size, l.size]));
     }
   });
@@ -32,6 +34,6 @@ describe('the pictures in public/art', () => {
     // GitHub Pages serves them from the app's own origin, where the child's progress lives
     const files = svgFiles(ART);
     expect(files.length).toBeGreaterThan(100);
-    for (const file of files) expect(readFileSync(file, 'utf8'), file).not.toMatch(/<script|\son[a-z]+\s*=|<foreignObject|href\s*=|<!ENTITY|<!DOCTYPE/i);
+    for (const file of files) expect(readFileSync(file, 'utf8'), file).not.toMatch(/<([\w.-]+:)?script\b|\son[a-z]+\s*=|<foreignObject|href\s*=|javascript:|<!ENTITY|<!DOCTYPE/i);
   });
 });

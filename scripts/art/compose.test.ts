@@ -18,6 +18,7 @@ describe('innerSvg', () => {
     expect(() => innerSvg('<svg viewBox="0 0 36 36"><path d="M1 1"/></svg>')).toThrow('viewBox "0 0 72 72"');
     expect(() => innerSvg('<svg viewBox="0 0 72 72"><linearGradient id="g"/><path fill="url(#g)"/></svg>')).toThrow('refers to its own ids');
     expect(() => innerSvg('<svg viewBox="0 0 72 72"><use href="#a"/></svg>')).toThrow('refers to its own ids');
+    expect(() => innerSvg(`<svg viewBox="0 0 72 72"><path fill="url('#g')"/></svg>`)).toThrow('refers to its own ids');
   });
 });
 

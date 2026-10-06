@@ -54,7 +54,7 @@ export function innerSvg(svg: string): string {
   if (!m) throw new Error('not an SVG file');
   if (!/\bviewBox="0 0 72 72"/.test(m[1] as string)) throw new Error('expected an OpenMoji drawing, viewBox "0 0 72 72"');
   const inner = m[2] as string;
-  if (/url\(#|href="#/.test(inner)) throw new Error('the drawing refers to its own ids, which composing removes');
+  if (/url\(\s*['"]?#|href\s*=\s*['"]#/.test(inner)) throw new Error('the drawing refers to its own ids, which composing removes');
   return inner.replace(/\s+id="[^"]*"/g, '').trim();
 }
 

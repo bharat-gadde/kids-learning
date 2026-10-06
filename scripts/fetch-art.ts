@@ -20,14 +20,16 @@ const ART = fileURLToPath(new URL('../public/art/', import.meta.url));
 const pictures = new Map<string, string>();
 async function fetchPicture(hex: string, path: string): Promise<void> {
   if (pictures.has(hex)) return;
-  let res: Response;
+  const url = openMojiUrl(hex);
+  let svg: string;
   try {
-    res = await fetch(openMojiUrl(hex), { signal: AbortSignal.timeout(30_000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(30_000) }); // the timeout covers reading the body too
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+    svg = await res.text();
   } catch (e) {
     throw new Error(`OpenMoji ${hex} for ${path}: ${(e as Error).message} (behind a proxy, set NODE_USE_ENV_PROXY=1)`, { cause: e });
   }
-  if (!res.ok) throw new Error(`OpenMoji ${hex} for ${path}: HTTP ${res.status} from ${openMojiUrl(hex)}`);
-  pictures.set(hex, await res.text());
+  pictures.set(hex, svg);
 }
 
 let written = 0;
