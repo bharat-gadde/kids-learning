@@ -21,7 +21,7 @@ export type HowlCtor = new (options: HowlOptions) => HowlLike;
  * html5: true streams from the network and keeps iOS Safari happy with many small files.
  */
 export class HowlerClipPlayer implements ClipPlayer {
-  private current: HowlLike | null = null;
+  private current: { howl: HowlLike; finish: () => void } | null = null;
 
   constructor(private readonly Howl: HowlCtor) {}
 
@@ -47,17 +47,22 @@ export class HowlerClipPlayer implements ClipPlayer {
         onloaderror: (_id, error) => fail(`Could not load ${url}: ${String(error)}`),
         onplayerror: (_id, error) => fail(`Could not play ${url}: ${String(error)}`),
       });
-      this.current = howl;
+      this.current = { howl, finish };
       howl.play();
     });
   }
 
+  /**
+   * Settles the clip's promise itself: Howler queues stop() while a sound is still loading and unload() drops that
+   * queue, so no onstop arrives; and unloading during an html5 play() makes Howler fire onplayerror instead.
+   */
   stop(): void {
     const current = this.current;
     this.current = null;
     if (current) {
-      current.stop();
-      current.unload();
+      current.finish();
+      current.howl.stop();
+      current.howl.unload();
     }
   }
 }
