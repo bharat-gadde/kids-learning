@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isExpression, type BuddyExpression } from '../buddy/Buddy';
 import { cueClass, SETTLE_MS, SHOW_MS, useRoundFlow } from '../game/useRoundFlow';
 import { VignetteView } from '../scenario/Vignette';
-import { VIGNETTES, WATCH_MS, type FriendMood } from '../scenario/vignettes';
+import { SADDER, VIGNETTES, WATCH_MS, type FriendMood } from '../scenario/vignettes';
 import { useLater, useViewport } from '../ui/hooks';
 import { Picture } from '../ui/Picture';
 import { tiltFor } from '../ui/tilt';
@@ -14,9 +14,9 @@ type Choice = { id: string; label: string; asset: string; correct: boolean; reac
 
 /**
  * Spec §6 #22: a short vignette (narrated, ending with the question), then 2–3 choices. A feeling chosen right, Buddy
- * acts it out. In the kindness scenes an unkind choice shows the friend's sad face — never Buddy acting it out — and
- * says the choice's reaction line; a kind one makes the friend smile. Judged by `correct`, never by slot (a scene can
- * have two right answers).
+ * acts it out. In the kindness scenes an unkind choice says its reaction line and makes the friend's face sadder —
+ * never Buddy acting it out; a kind one makes the friend smile. Judged by `correct`, never by slot (a scene can have
+ * two right answers).
  */
 export function SceneThenChoose({ round, deps, look, onEnd, onReact, quiet }: MechanicProps) {
   const p = round.payload;
@@ -52,7 +52,7 @@ export function SceneThenChoose({ round, deps, look, onEnd, onReact, quiet }: Me
       return;
     }
     setShake((s) => ({ id: c.id, n: (s?.n ?? 0) + 1 }));
-    if (c.reactionLineId) setFriend('sad');
+    if (c.reactionLineId) setFriend((f) => SADDER[f ?? 'happy']);
     settling.current = c.id;
     later(() => {
       if (settling.current === c.id) settling.current = null;
@@ -69,7 +69,7 @@ export function SceneThenChoose({ round, deps, look, onEnd, onReact, quiet }: Me
   };
 
   const frame = Math.round(Math.min(watching ? h * 0.62 : h * 0.42, (w - 80) / 1.6));
-  const size = Math.round(Math.min(h * 0.18, (w - 160) / p.choices.length - 60, 150));
+  const size = Math.round(Math.max(48, Math.min(h * 0.18, (w - 160) / p.choices.length - 60, 150)));
   return (
     <div className="stage">
       <VignetteView vignette={p.vignette} look={look} buddy={buddy} {...(friend ? { friend } : {})} height={frame} />

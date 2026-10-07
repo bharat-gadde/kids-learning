@@ -5,7 +5,7 @@
  * (the set's background could contradict it: thunder over a sunny playground).
  */
 
-/** The friend in the kindness scenes: a face whose mood follows the child's choice (sad after an unkind one). */
+/** The friend in the kindness scenes: a face whose mood follows the child's choice (sadder after an unkind one). */
 export type FriendMood = 'happy' | 'sad' | 'crying' | 'hurt';
 
 export const FRIEND_FACES: Record<FriendMood, string> = {
@@ -14,6 +14,12 @@ export const FRIEND_FACES: Record<FriendMood, string> = {
   crying: 'parts/face-crying.svg',
   hurt: 'parts/face-hurt.svg',
 };
+
+/**
+ * The friend's face after an unkind choice: one step sadder than before, so the change shows whatever the scene began
+ * with (spec §6 #22: the sad face is the lesson). A friend already sad cries; a crying one goes on crying.
+ */
+export const SADDER: Record<FriendMood, FriendMood> = { happy: 'sad', hurt: 'sad', sad: 'crying', crying: 'crying' };
 
 export interface Actor {
   /** Buddy (the child's), the friend's face, or a picture */
@@ -77,7 +83,7 @@ export const VIGNETTES: Readonly<Record<string, Vignette>> = {
   },
   'vignettes/friend-crying.svg': {
     backdrop: 'park',
-    friend: 'crying',
+    friend: 'sad', // a tear (OpenMoji's "crying face"): an unkind choice brings the sobs
     actors: [
       { who: 'art', asset: 'parts/slide.svg', x: 20, y: 56, size: 58 },
       { who: 'friend', x: 62, y: 54, size: 44, anim: 'bob' },

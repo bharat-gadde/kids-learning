@@ -20,7 +20,7 @@ const MECHANICS: Partial<Record<MechanicId, (props: MechanicProps) => React.JSX.
   'scene-then-choose': SceneThenChoose,
 };
 
-export const isPlayable = (mechanic: MechanicId): boolean => mechanic in MECHANICS;
+export const isPlayable = (mechanic: MechanicId): boolean => Object.hasOwn(MECHANICS, mechanic);
 
 /** The round's mechanic. One that is not built yet throws, and the game's error boundary ends the set gracefully. */
 export function Mechanic(props: MechanicProps) {
