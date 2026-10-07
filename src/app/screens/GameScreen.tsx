@@ -163,7 +163,8 @@ export function GameScreen({ services, play, look, names, topicId, dances, yourT
   const round = set?.rounds[index];
   const scene = round ? services.pack.scenes.get(round.sceneId) : undefined;
   const payload = round?.payload;
-  const buddyOnStage = round?.mechanic === 'give-to-buddy' || (payload?.kind === 'scenario' && VIGNETTES[payload.vignette]?.actors.some((a) => a.who === 'buddy'));
+  // Buddy is on stage once the round's mechanic is: while the bridge line plays, Buddy says it from the corner
+  const buddyOnStage = begun && (round?.mechanic === 'give-to-buddy' || (payload?.kind === 'scenario' && VIGNETTES[payload.vignette]?.actors.some((a) => a.who === 'buddy')));
   return (
     <div className="screen game">
       {scene && <img className="game__scene" src={artUrl(scene.asset)} alt="" />}

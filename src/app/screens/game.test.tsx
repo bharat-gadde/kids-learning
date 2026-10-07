@@ -7,6 +7,7 @@ import { generateSet } from '../../engine/generator/round';
 import { EMPTY_HISTORY } from '../../engine/generator/types';
 import { recordAttempt } from '../../engine/progress/db';
 import { attemptFromRound } from '../../engine/progress/history';
+import { SHOW_MS } from '../game/useRoundFlow';
 import { WATCH_MS } from '../scenario/vignettes';
 import { playAnyhow, playContextFor, settle, useAppTimers, wait } from '../testing/play';
 import { testServices } from '../testing/services';
@@ -108,12 +109,41 @@ describe('GameScreen', () => {
   });
 
   it('the Home button leaves: the rounds played stay recorded, with no result and no sticker', async () => {
-    const t = await setup('feelings');
-    expect(await t.services.db.setResults.count()).toBe(0);
+    const t = await setup('letters');
+    const total = document.querySelectorAll('.progress-dots__dot').length;
+    const done = () => document.querySelectorAll('.progress-dots__dot.is-done').length;
+    const endRound = () => { for (const b of [...document.querySelectorAll<HTMLElement>('.stage button.option')]) fireEvent.click(b); };
+    for (let i = 0; i < total - 1; i++) {
+      endRound(); // one of them is right; the round ends either way within two misses
+      await wait(SHOW_MS + NEXT_MS + 200);
+    }
+    endRound();
+    for (let i = 0; i < 10 && done() < total; i++) await wait(100);
+    expect(done()).toBe(total); // the last round has ended: the set would finish after NEXT_MS
     fireEvent.click(screen.getByLabelText('Home'));
     expect(t.onLeave).toHaveBeenCalledOnce();
+    t.unmount(); // what the App does on onLeave
+    await wait(NEXT_MS + 5000);
     await t.services.writes.idle();
+    expect(await t.services.db.attempts.count()).toBe(total);
     expect(await t.services.db.setResults.count()).toBe(0);
     expect(await t.services.db.stickers.count()).toBe(0);
+    expect(t.services.voice.said.map((r) => r.lineId)).not.toContain('fb.set_done');
+  });
+
+  it('keeps Buddy in the corner for the bridge line, until a give round puts Buddy on stage', async () => {
+    const t = await setup('counting', async (play) => {
+      const give = generateSet(play.pack, play.pack.templates.get('counting.give')!, { seed: 1, level: 1, history: EMPTY_HISTORY })[0]!;
+      const match = generateSet(play.pack, play.pack.templates.get('counting.match')!, { seed: 2, level: 1, history: EMPTY_HISTORY })[0]!;
+      const base = { profileId: play.profileId, sessionIndex: play.sessionIndex, hints: 0, durationMs: 1 };
+      await recordAttempt(play.db, attemptFromRound(give, { ...base, at: 1, outcome: 'correct' }));
+      await recordAttempt(play.db, attemptFromRound(match, { ...base, at: 2, outcome: 'shown' }));
+    }, true);
+    expect(t.services.voice.said.map((r) => r.lineId)).toEqual(['buddy.bridge']);
+    expect(document.querySelector('.game__buddy')).not.toBeNull(); // Buddy says it from the corner
+    act(() => t.services.voice.release());
+    await settle();
+    expect(document.querySelector('.game__buddy')).toBeNull(); // the give round has Buddy on stage
+    expect(document.querySelector('.stage .buddy')).not.toBeNull();
   });
 });

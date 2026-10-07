@@ -65,7 +65,7 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
     services.music.stop();
     onDone();
   };
-  const yourTurnNow = () => {
+  const yourTurnNow = (offerAgain: boolean) => {
     go('demo');
     at(DEMO_MS, () => {
       go('your-turn');
@@ -73,14 +73,21 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
       at(YOUR_TURN_MS, () => {
         go('cheer');
         services.sfx.chime();
-        services.speaker.say(UI_LINES.yourTurnCheer);
+        const cheer = services.speaker.say(UI_LINES.yourTurnCheer);
+        // "Again?" is the offer: asked as its button appears, once the cheer has been heard — nothing if the child moved on
+        if (offerAgain) {
+          const mine = step.current;
+          void cheer.done.then(() => {
+            if (step.current === mine) services.speaker.say(UI_LINES.yourTurnAgain);
+          });
+        }
         at(CHEER_MS, finish);
       });
     });
   };
   const afterDance = () => {
     services.music.stop();
-    if (yourTurn) yourTurnNow();
+    if (yourTurn) yourTurnNow(true);
     else finish();
   };
 
@@ -96,18 +103,21 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
         at(DANCE_MS, afterDance);
       });
     });
-    return () => services.music.stop();
+    return () => {
+      step.current += 1; // gone: the "Again?" offer waiting on the cheer is dropped too
+      services.music.stop();
+    };
     // once, on arrival
   }, []);
 
   const tapBuddy = () => {
     if (phase === 'dance') afterDance();
-    else if (phase === 'demo' || phase === 'your-turn' || phase === 'cheer') finish();
+    // not while Buddy shows the move: the second tap of a double tap that ended the dance must not skip "your turn"
+    else if (phase === 'your-turn' || phase === 'cheer') finish();
   };
   const again = () => {
     setAgainUsed(true);
-    services.speaker.say(UI_LINES.yourTurnAgain);
-    yourTurnNow();
+    yourTurnNow(false);
   };
 
   const move: BuddyMove = phase === 'dance' ? dance : phase === 'demo' ? action : phase === 'cheer' || phase === 'party' ? 'cheer' : 'idle';
@@ -120,8 +130,9 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
           ))}
         </div>
       )}
+      <span className="icon-button celebration__book" aria-hidden="true"><img src={artUrl('ui/stickers.svg')} alt="" /></span>
       <div className={`celebration__sticker ${phase === 'party' ? '' : 'is-flying'} ${sticker.shiny ? 'is-shiny' : ''}`}>
-        <Picture asset={sticker.pictureId} label="your sticker" size={140} />
+        <Picture asset={sticker.pictureId} label="your sticker" size={Math.round(Math.min(140, window.innerHeight * 0.17))} />
       </div>
       <button type="button" className="celebration__buddy" aria-label="Buddy" onClick={(e) => { e.stopPropagation(); tapBuddy(); }}>
         <Buddy {...look} move={move} expression={phase === 'your-turn' ? 'neutral' : 'happy'} size={Math.min(window.innerHeight * 0.62, 460)} />
