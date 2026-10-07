@@ -10,12 +10,16 @@ export interface SynthContext {
 }
 
 export interface Tone {
-  /** Hz at the start, and optionally at the end (a slide) */
+  /** Hz at the start, and optionally at the end (a slide); above 0: an exponential ramp cannot reach 0 */
   freq: number;
   to?: number;
   /** seconds after `at` */
   start?: number;
+  /** seconds to the peak: 12 ms unless a sound swells (a soft "hmm", a whoosh) */
+  attack?: number;
+  /** seconds, longer than the attack */
   dur: number;
+  /** the peak, above 0 */
   gain: number;
   type?: OscillatorType;
 }
@@ -29,7 +33,7 @@ export function tone(ctx: SynthContext, out: AudioNode, at: number, t: Tone): Os
   osc.frequency.setValueAtTime(t.freq, t0);
   if (t.to !== undefined) osc.frequency.exponentialRampToValueAtTime(t.to, t0 + t.dur);
   env.gain.setValueAtTime(0.0001, t0);
-  env.gain.exponentialRampToValueAtTime(t.gain, t0 + 0.012);
+  env.gain.exponentialRampToValueAtTime(t.gain, t0 + (t.attack ?? 0.012));
   env.gain.exponentialRampToValueAtTime(0.0001, t0 + t.dur);
   osc.connect(env);
   env.connect(out);
@@ -47,7 +51,11 @@ export function lazyContext(): () => SynthContext | null {
   return () => {
     if (ctx === undefined) {
       const Ctor = typeof window === 'undefined' ? undefined : (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
-      ctx = Ctor ? new Ctor() : null;
+      try {
+        ctx = Ctor ? new Ctor() : null;
+      } catch {
+        ctx = null; // the browser refused one: the game goes on without effects and music (spec §13)
+      }
     }
     return ctx;
   };

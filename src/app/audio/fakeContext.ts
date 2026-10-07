@@ -3,7 +3,11 @@
 import type { SynthContext } from './synth';
 
 export interface FakeContext extends SynthContext {
+  /** a test moves the clock by hand */
+  currentTime: number;
   started: Array<{ freq: number; at: number }>;
+  /** notes stopped before they started */
+  cancelled: number;
   disconnected: number;
   state: string;
 }
@@ -15,15 +19,17 @@ export function fakeContext(state = 'running'): FakeContext {
     destination: {} as AudioNode,
     state,
     started: [] as Array<{ freq: number; at: number }>,
+    cancelled: 0,
     disconnected: 0,
     createOscillator() {
       let freq = 0;
+      let startedAt = 0;
       return {
         type: 'sine',
         frequency: { ...param(), setValueAtTime(v: number) { freq = v; return this; } },
         connect() {},
-        start(at: number) { ctx.started.push({ freq, at }); },
-        stop() {},
+        start(at: number) { startedAt = at; ctx.started.push({ freq, at }); },
+        stop(at: number) { if (at < startedAt) ctx.cancelled += 1; },
       } as unknown as OscillatorNode;
     },
     createGain() {
