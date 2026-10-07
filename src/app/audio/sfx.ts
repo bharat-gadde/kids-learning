@@ -1,0 +1,42 @@
+// src/app/audio/sfx.ts
+import { tone, type SynthContext } from './synth';
+
+/** Sound effects (spec §7): one gentle set, synthesised, so there are no files to license or load. */
+export interface Sfx {
+  /** Resume the audio context: call it inside the child's first tap (spec §7 unlock). */
+  unlock(): void;
+  /** a correct answer */
+  chime(): void;
+  /** a miss: a soft "hmm", never a buzzer (spec §4.4) */
+  boop(): void;
+  /** an item placed, a tap that counts */
+  pop(): void;
+  /** a sticker flying to the book */
+  whoosh(): void;
+  /** confetti */
+  sparkle(): void;
+}
+
+export function createSfx(context: () => SynthContext | null): Sfx {
+  const play = (draw: (ctx: SynthContext, now: number) => void) => {
+    const ctx = context();
+    if (!ctx || ctx.state !== 'running') return;
+    draw(ctx, ctx.currentTime);
+  };
+  return {
+    unlock() {
+      const ctx = context();
+      if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => {});
+    },
+    chime: () => play((ctx, now) => {
+      tone(ctx, ctx.destination, now, { freq: 1046.5, dur: 0.35, gain: 0.16 });
+      tone(ctx, ctx.destination, now, { freq: 1318.5, start: 0.09, dur: 0.45, gain: 0.16 });
+    }),
+    boop: () => play((ctx, now) => tone(ctx, ctx.destination, now, { freq: 330, to: 262, dur: 0.28, gain: 0.1, type: 'triangle' })),
+    pop: () => play((ctx, now) => tone(ctx, ctx.destination, now, { freq: 620, to: 920, dur: 0.09, gain: 0.12 })),
+    whoosh: () => play((ctx, now) => tone(ctx, ctx.destination, now, { freq: 260, to: 1300, dur: 0.45, gain: 0.05, type: 'triangle' })),
+    sparkle: () => play((ctx, now) => {
+      [1568, 2093, 1760, 2349, 1976, 2637].forEach((f, i) => tone(ctx, ctx.destination, now, { freq: f, start: i * 0.08, dur: 0.18, gain: 0.05 }));
+    }),
+  };
+}
