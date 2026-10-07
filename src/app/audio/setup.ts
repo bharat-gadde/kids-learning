@@ -3,21 +3,26 @@ import { Howl } from 'howler';
 import { HowlerClipPlayer, type HowlCtor } from '../../engine/audio/howlerPlayer';
 import { AudioManager } from '../../engine/audio/manager';
 import { EMPTY_MANIFEST, ManifestClipSource, type ClipManifest } from '../../engine/audio/manifest';
-import { createWebSpeechTts, pickVoice, type VoiceLike } from '../../engine/audio/tts';
+import { createWebSpeechTts, pickVoice, PREFERRED_LANGS } from '../../engine/audio/tts';
 import type { ContentPack } from '../../engine/content/load';
 
 /**
  * The voice clips' manifest, from under the site's base path (a GitHub Pages project site lives under /<repo>/, where
- * '/audio/…' would 404 and every line fall back to TTS without an error). No manifest means TTS for every line.
+ * '/audio/…' would 404 and every line fall back to TTS without an error). No manifest means TTS for every line, and so
+ * does one that takes longer than timeoutMs: the app waits for it before its first screen.
  */
-export async function loadManifest(baseUrl: string, fetchFn: typeof fetch = fetch): Promise<ClipManifest> {
+export async function loadManifest(baseUrl: string, fetchFn: typeof fetch = fetch, timeoutMs = 3000): Promise<ClipManifest> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
   try {
-    const res = await fetchFn(`${baseUrl}audio/manifest.json`);
+    const res = await fetchFn(`${baseUrl}audio/manifest.json`, { signal: abort.signal });
     if (!res.ok) return EMPTY_MANIFEST;
     const m = (await res.json()) as Partial<ClipManifest> | null;
     return m?.version === 1 && m.clips && typeof m.clips === 'object' ? (m as ClipManifest) : EMPTY_MANIFEST;
   } catch {
     return EMPTY_MANIFEST;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -39,7 +44,11 @@ const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfA
  * html5 pool; a clip built before the child's first tap could otherwise fail and fall through to TTS.
  */
 export function primeHowler(): void {
-  new Howl({ src: [SILENCE], format: ['wav'], html5: true, preload: false });
+  try {
+    new Howl({ src: [SILENCE], format: ['wav'], html5: true, preload: false });
+  } catch {
+    // Howler could not make its AudioContext (on a 48 kHz device it makes a second one): a clip that cannot play falls through to TTS
+  }
 }
 
 /**
@@ -48,9 +57,13 @@ export function primeHowler(): void {
  */
 export function unlockSpeech(): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  const u = new SpeechSynthesisUtterance('');
-  u.volume = 0;
-  window.speechSynthesis.speak(u);
+  try {
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+  } catch {
+    // never an exception in Hello's tap: the greeting and the visit go on
+  }
 }
 
 /**
@@ -60,8 +73,8 @@ export function unlockSpeech(): void {
 export function primeVoices(log: (message: string) => void = console.info): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   const report = () => {
-    const voices = window.speechSynthesis.getVoices() as unknown as VoiceLike[];
-    if (voices.length > 0) log(`speech voice: ${pickVoice(voices, ['en-IN', 'en-GB', 'en-US', 'en'])?.name ?? 'none in English'}`);
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) log(`speech voice: ${pickVoice(voices, PREFERRED_LANGS)?.name ?? 'none in English'}`);
   };
   report();
   window.speechSynthesis.addEventListener?.('voiceschanged', report, { once: true });

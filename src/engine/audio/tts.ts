@@ -19,6 +19,9 @@ export interface SynthLike {
   cancel(): void;
 }
 
+/** The device voice's language, in order of preference (WebSpeechTts's default; primeVoices logs the voice it picks). */
+export const PREFERRED_LANGS: readonly string[] = ['en-IN', 'en-GB', 'en-US', 'en'];
+
 /** First voice whose language matches a preferred prefix, in preference order. */
 export function pickVoice(voices: readonly VoiceLike[], preferred: readonly string[]): VoiceLike | null {
   for (const lang of preferred) {
@@ -37,7 +40,7 @@ export class WebSpeechTts implements TtsEngine {
   constructor(
     private readonly synth: SynthLike | null,
     private readonly makeUtterance: ((text: string) => UtteranceLike) | null,
-    private readonly preferred: readonly string[] = ['en-IN', 'en-GB', 'en-US', 'en'],
+    private readonly preferred: readonly string[] = PREFERRED_LANGS,
     private readonly rate = 0.9,
   ) {}
 
