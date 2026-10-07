@@ -26,8 +26,9 @@ export interface AttemptDetails {
   /** hash of the round's payload (what was on screen), so a replay is told apart from a round that only shares its target */
   payloadHash?: number;
   /**
-   * What the child picked or placed wrongly, in order: option, item or drop-target ids, or `n:<count>` for a wrong
-   * count. Absent when there was none. The parent corner's named confusions (spec §5.5, §8: b/d, 6/9) read it.
+   * What the child picked or placed wrongly, in order: an option's or item's id, `item>target` for an item put in the
+   * wrong place (a bin, a slot, a partner), or `n:<count>` for a wrong count. Absent when there was none. The parent
+   * corner's named confusions (spec §5.5, §8: b/d, 6/9, a tomato in the fruit basket) read it, with the attempt's mechanic.
    */
   wrongIds?: string[];
 }
