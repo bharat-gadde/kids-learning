@@ -39,12 +39,12 @@ Buddy speaks every line with the device's voice until the voice clips are genera
 
 The workflow `.github/workflows/deploy.yml` checks, builds and publishes the app on every push to `main`.
 
-1. Decide what the repository shows. Its `docs/` describe the child (age, school, how they learn). Either keep the repository private — GitHub Pages from a private repository needs a paid GitHub plan — or publish from a repository without those documents.
+1. Decide what the repository shows. Its `docs/` describe the child (age, school, how they learn), and every commit shows your git email. Either keep the repository private — GitHub Pages from a private repository needs a paid GitHub plan, and the site itself is public either way (the child's data stays on the tablet) — or publish a new repository whose history never held `docs/`: deleting them in a commit leaves them in every commit before it. A public repository is also when to decide whether to name yourself as the licensor of the drawn pictures (`art/README.md`).
 2. Create the repository on GitHub, add it as the `origin` remote, and push `main`.
-3. In the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The next push (or **Actions → Deploy to GitHub Pages → Run workflow**) publishes `https://<user>.github.io/<repository>/`.
+3. In the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The run that step 2's push started fails at `configure-pages` until then; the next push (or **Actions → Deploy to GitHub Pages → Run workflow**) publishes `https://<user>.github.io/<repository>/`.
 4. On the tablet, open that address and add it to the home screen (Safari: **Share → Add to Home Screen**) before setting Buddy up: on an iPad the home-screen app keeps its own data, apart from Safari's. Open it from the home screen once while online (it saves itself for offline then) and set the child up there. It opens full screen and works offline.
 5. After a push, the tablet picks up the new version in two steps: open Buddy once while online, then close it (swipe it away) and open it again.
 
-Nothing in the app leaves the device (spec §10): no accounts, no analytics, no requests except the app's own files.
+Nothing in the app leaves the device (spec §10): no accounts, no analytics, no requests except the app's own files. One caution: if a device's speech voice is an online one, as some of Chrome's are, the lines it speaks (the child's name among them) go to that voice's provider; the iPad's voices are on the device.
 
 The pictures are OpenMoji and drawings in its style, under CC BY-SA 4.0 ([art/README.md](art/README.md)); the rest of the repository is not licensed for reuse (`UNLICENSED`).
