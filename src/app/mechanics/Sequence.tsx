@@ -58,11 +58,15 @@ export function Sequence({ round, deps, onEnd, onReact, quiet }: MechanicProps) 
 
   const n = p.correctOrder.length;
   // the slots stay on one row: each is size + 70 wide (min-width size + 30, padding, border), each arrow between two adds
-  // 56 (36 + two 10 px gaps), inside the stage's 20 px sides and 8 px to spare; never below 48 px (the phone layout is M4's)
-  const size = Math.floor(Math.max(48, Math.min((w - 48 - 56 * (n - 1)) / n - 70, h * 0.2, 150)));
+  // 56 (36 + two 10 px gaps), inside the stage's 20 px sides and 8 px to spare; never below 48 px (the phone layout is M4's).
+  // The corner Buddy covers no slot: a card (size + 62 tall, + 28 for a name on two lines) and a slot (size + 68) stand
+  // above his 150 px (.stage--corner, inside a stage of h - 128) or, where that would make them smaller, the slots pass
+  // beside his 145 px on either side
+  const clear = Math.max((h * 0.96 - 436) / 2, (w - 290 - 56 * (n - 1)) / n - 70);
+  const size = Math.floor(Math.max(48, Math.min((w - 48 - 56 * (n - 1)) / n - 70, h * 0.2, 150, clear)));
   const card = (id: string) => p.items.find((i) => i.id === id);
   return (
-    <div className="stage">
+    <div className="stage stage--corner">
       <div className="tray">
         {p.items.filter((i) => !filled.current.includes(i.id)).map((item) => (
           <button key={item.id} type="button" aria-label={item.label} {...dnd.itemProps(item.id, !flow.ended && !showing.current.includes(item.id))}>

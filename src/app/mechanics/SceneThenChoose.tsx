@@ -68,8 +68,10 @@ export function SceneThenChoose({ round, deps, look, onEnd, onReact, quiet }: Me
     }
   };
 
-  const frame = Math.round(Math.min(watching ? h * 0.62 : h * 0.42, (w - 80) / 1.6));
   const size = Math.round(Math.max(48, Math.min(h * 0.18, (w - 160) / p.choices.length - 60, 150)));
+  // with the choices, the frame shares the stage (h - 128) with them (a picture and its name on up to two lines, size + 92,
+  // and the 2vh gap): on a short screen (a phone) it gives way, so no choice runs off the bottom
+  const frame = Math.round(Math.min(watching ? h * 0.62 : Math.min(h * 0.42, h * 0.98 - 220 - size), (w - 80) / 1.6));
   return (
     <div className="stage">
       <VignetteView vignette={p.vignette} look={look} buddy={buddy} {...(friend ? { friend } : {})} height={frame} />

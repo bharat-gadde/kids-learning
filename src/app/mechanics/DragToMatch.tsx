@@ -141,6 +141,9 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
 
   const rows = Math.max(p.left.length, p.right.length);
   const size = Math.round(Math.max(48, Math.min((h - 220) / rows - 30, w * 0.16, 150)));
+  // a counted group's card is a third wider than tall: most groups are wider than they are tall (4 + 4 + 2 for ten), and
+  // the columns' gap has the room. Groups of 2, 3, 5–8 and 10 draw each picture about 40% bigger; 4 and 9 as before
+  const wide = (item: (typeof p.left)[number]) => (item.count !== undefined ? Math.round(size * 4 / 3) : size);
   const column = (items: typeof p.left, side: 'left' | 'right') => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: side === 'left' ? 'flex-end' : 'flex-start' }}>
       {items.map((item) => (
@@ -152,10 +155,10 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
           aria-label={item.label}
           aria-pressed={done(item.id)}
           className={`option draggable ${cueClass(flow.cue, item.id)} ${done(item.id) ? 'is-right' : ''} ${selected === item.id ? 'is-selected' : ''}`}
-          style={{ width: size + 24, height: size + 24, rotate: tiltFor(item.id), touchAction: 'none' }}
+          style={{ width: wide(item) + 24, height: size + 24, rotate: tiltFor(item.id), touchAction: 'none' }}
           {...pointer(item.id)}
         >
-          <ItemView item={item} size={size} />
+          <ItemView item={item} size={wide(item)} height={size} />
         </button>
       ))}
     </div>

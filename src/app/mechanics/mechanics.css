@@ -1,5 +1,8 @@
 /* src/app/mechanics/mechanics.css — shared by every mechanic */
 .stage { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; gap: 2vh; padding: 8px 20px 16px; }
+/* the corner Buddy's room (game.css: 150 px tall, at the bottom left), kept clear by a stage whose rows could reach him;
+   it is the first thing to give way on a screen too short for it (a phone, M4's) */
+.stage--corner::after { content: ''; flex: 0 1 150px; }
 .row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: clamp(14px, 3vw, 40px); }
 .option {
   position: relative; display: grid; place-items: center; padding: 12px; min-width: var(--target); min-height: var(--target);

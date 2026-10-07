@@ -16,13 +16,14 @@ export function groupColumns(count: number): number {
 
 /**
  * What a round item looks like: its picture, scaled for size rules (spec §6.1: the same object at several sizes), or
- * `count` copies for count rules. `size` is the full-size picture's width in px.
+ * `count` copies for count rules. `size` is the full-size picture's width in px; a group fills a box `size` wide and
+ * `height` tall (square unless the caller has room to spare across).
  */
-export function ItemView({ item, size }: { item: RoundItem; size: number }) {
+export function ItemView({ item, size, height = size }: { item: RoundItem; size: number; height?: number }) {
   if (item.count !== undefined) {
     const cols = groupColumns(item.count);
     const rows = Math.ceil(item.count / cols);
-    const each = Math.floor(size / Math.max(cols, rows)) - 4;
+    const each = Math.floor(Math.min(size / cols, height / rows)) - 4;
     return (
       <span className="group" style={{ gridTemplateColumns: `repeat(${cols}, ${each}px)` }} role="img" aria-label={item.label}>
         {Array.from({ length: item.count }, (_, i) => <Picture key={i} asset={item.asset} label="" size={each} />)}
