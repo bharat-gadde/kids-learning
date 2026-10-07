@@ -135,6 +135,7 @@ Five islands on one scrolling map. Each island has topic spots (a signpost with 
 - **Correct:** chime, Buddy cheers (random short line), the progress dot fills.
 - **First wrong:** gentle "Hmm, try again" + a hint (the correct option wiggles briefly, or the right bin glows). The wrong option is not removed.
 - **Second wrong:** Buddy says "It's this one!" and demonstrates with a short animation; the round ends and counts as *shown* for mastery. The set continues.
+- **Several answers in one round:** where each item has its own place (sort, match, sequence), misses count per item — a second miss on an item has Buddy put that one in place, and the child carries on; the round counts as *shown*. In give-a-number rounds the child taps ✓ when done; a wrong count is a miss, and the hint numbers what was given.
 - **Never:** blocking, a sad Buddy, a buzzer, a red cross, or showing a score to the child.
 - **Exit:** a Home button is always visible; leaving mid-set keeps the stickers already earned.
 
@@ -341,7 +342,7 @@ Each mechanic is one reusable, tested component with a small set of parameters. 
 **Listen & story**
 
 21. **listen-and-find** — a sound or word plays (no text); tap the matching picture or letter from 2–4.
-22. **scene-then-choose** — a 3–6 s animated vignette, then 2–3 choices (faces or actions). Buddy acts out the choice. In "what's kind" rounds an unkind choice shows the other character's sad face and Buddy gently suggests trying a kind one — the only place a sad face is a consequence, because that *is* the lesson.
+22. **scene-then-choose** — a 3–6 s animated vignette, then 2–3 choices (faces or actions). Buddy acts out the choice. In "what's kind" rounds an unkind choice makes the other character's face sadder (a sad friend sobs) and Buddy gently suggests trying a kind one — the only place a sad face is a consequence, because that *is* the lesson.
 23. **memory-flip** — 2×2 to 3×4 face-down cards; find pairs (same, capital/small, rhymes, mother/baby, faces).
 
 ### 6.1 The write mechanic (letters, numbers, strokes, shapes)
@@ -426,7 +427,7 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 |---|---|
 | Profile | id · name · level · Buddy (colour, name, accessory) · createdAt · settings overrides |
 | Session | profileId · index (1, 2, 3… per profile; the session window of §5.4 rule 1) · startedAt |
-| Attempt | profileId · timestamp · session index · templateId · topicId · goalId · mechanic · form · seed (the set's) · level · outcome (correct / corrected / shown) · hints · duration · details (the round's place in its set, item ids, slot, scene, wording, payload hash; e.g. write score components) |
+| Attempt | profileId · timestamp · session index · templateId · topicId · goalId · mechanic · form · seed (the set's) · level · outcome (correct / corrected / shown) · hints · duration · details (the round's place in its set, item ids, slot, scene, wording, payload hash, what was picked or placed wrongly; e.g. write score components) |
 | SetResult | profileId · timestamp · session index · templateId · goalId · level · correct · total (a finished set; the difficulty ramp of §5.4 rule 7) |
 | RoutineEvent | profileId · timestamp · sceneId · completed · selfReport (yes / not yet / skipped) · randomEventId |
 | CheckIn | profileId · timestamp · feeling · breathTaken |
@@ -446,7 +447,7 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 
 ## 11. Platform
 
-- **Delivery:** a web app, installable to the home screen (full screen, icon, offline). Runs on iPad and Android tablets (primary), iPhone and Android phones (responsive layout: larger targets, fewer items per round, two bins instead of three, portrait supported), and laptops (mouse/trackpad). Native app-store wrapping is possible later from the same code; not v1.
+- **Delivery:** a web app, installable to the home screen (full screen, icon, offline). Runs on iPad and Android tablets (primary), iPhone and Android phones (responsive layout: larger targets, fewer items per round, two bins instead of three, portrait supported), and laptops (mouse/trackpad). Native app-store wrapping is possible later from the same code; not v1. On an iPad the home-screen app keeps its own storage, apart from Safari's, so a child is set up in the installed app (the setup screen says so).
 - **Orientation:** landscape primary on tablets.
 - **Offline:** the app shell and the current profile's recently used island packs are cached; island assets load on demand (each island pack ≤ 10 MB; shell ≤ 5 MB).
 - **Input:** pointer events everywhere; pen support with palm rejection and pressure (§6.1); hover-free design; no gestures beyond tap, drag and draw (no pinch, no long-press for children — long-press is reserved for the grown-up gate).
@@ -465,6 +466,8 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 | Scenario doodle pairs | ~50 | AI-generated in a consistent doodle style (3 px line, limited palette), vectorised, reviewed | Look right on paper and flat backgrounds |
 | Procedural pictures | unlimited | mazes generated; dot-to-dot and colour-in derived from the vector set's outlines and closed regions | No extra drawing |
 | Buddy | 1 rig | layered vector rig (head, trunk, ears, eyes, brows, mouth, body, arms, legs, accessory) | 10 expressions, idle loop, 6 dances, 5 actions, "your turn" variants, reactions |
+
+**M1's pictures (parent's choice, 2026-10-06):** OpenMoji (CC BY-SA 4.0, credited on the setup screen) supplies most objects, faces, cards and icons, and the scenes are composed from it; what it lacks or shows unclearly is drawn in its style (`art/README.md`). Any picture can be replaced by the Storybook set at the same path.
 
 **Style guide (Storybook):** warm paper background, crayon-stroke outlines, muted warm palette, slight rotation and paper grain on cards. **Soft Flat:** flat pastel fills, no texture, rounded geometry, calm motion. Both share the same shapes; a theme is a token file (colours, radii, type, textures, motion durations, sound set) plus a rendering filter for outlines and grain.
 
@@ -493,7 +496,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 
 **Data flow for one round:** Map tap → template picker (progress store) → round generator → mechanic renders and voices the prompt → child input → mechanic emits `attempt` → progress store updates mastery → rewards decide sticker/celebration → Buddy performs → back to Map.
 
-**Error handling:** a missing picture renders a neutral placeholder and logs the asset id (never blocks a round); a missing clip falls through the audio chain; a storage write failure keeps the session in memory and shows a quiet warning in the parent corner; a template that fails validation is excluded at build time, not at play time; any runtime exception inside a mechanic ends the round gracefully (sticker kept) and returns to the Map.
+**Error handling:** a missing picture renders a neutral placeholder and logs the asset id (never blocks a round); a missing clip falls through the audio chain; a storage write failure keeps the session in memory and shows a quiet warning in the parent corner; storage that gives no answer at start-up, or any other failure to start, shows a "try again" screen whose button reloads the app (there is no reload button in a home-screen app); a template that fails validation is excluded at build time, not at play time; any runtime exception inside a mechanic ends the round gracefully (sticker kept) and returns to the Map.
 
 ---
 
@@ -528,6 +531,8 @@ Four milestones, each a playable vertical slice, in priority order. Durations ar
 | Feelings Forest | Feelings (tap-the-one, scene-then-choose) · Kind & fair (scene-then-choose) |
 
 Parent corner: gate, timer, basic progress list. **Spikes done in M1:** pencil + palm rejection in Safari, audio unlock, home-screen install, storage persistence.
+
+M1 is built in two plans (parent's choice, 2026-10-06): **1B** — the Map, all fifteen games, Buddy, celebrations, stickers, install and offline; **1C** — Buddy's Home and its three routines, the feelings check-in, the timer and wind-down, the parent corner, and the pencil spike.
 
 **M2 — Habits & feelings depth.** The other six Home scenes; the random-event pool; Story & bed with 3 stories; all Awareness and Wellness templates (72); the mechanics they need (find-in-scene, assemble, listen-and-find, memory-flip, breathe-along, odd-one-out, maze, colour-in, tap-the-one with `pairs`); Buddy's full 10 expressions, 6 dances, 5 actions; the reward ladder and unlock ceremonies; free-play corners; feelings and habits views in the parent corner.
 

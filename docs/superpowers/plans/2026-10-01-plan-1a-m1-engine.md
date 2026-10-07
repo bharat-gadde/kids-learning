@@ -5551,7 +5551,7 @@ Not in this plan by design: everything visual (screens, Buddy rig, mechanic comp
 
 ## Execution notes (deviations from the task text, recorded as tasks complete)
 
-The task text above is kept as written; where execution differed, the change is listed here and the code on branch `plan-1a-engine` is authoritative.
+The task text above is kept as written; where execution differed, the change is listed here and the committed code is authoritative.
 
 **Before execution**
 - Pool candidates carry a top-level `id` (`objectCandidate` / `glyphCandidate`) so recent-repeat avoidance works; distractors never share the answer's spoken line (`B` vs `b`).
