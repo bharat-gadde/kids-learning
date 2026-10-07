@@ -13,7 +13,8 @@ const slotId = (i: number) => `slot:${i}`;
 
 /**
  * Spec §6 #10: 3–5 cards into ordered slots. A card dropped on the wrong slot bounces back with a hint (its slot
- * glows); a second miss with that card and Buddy puts it in its place. The round's correctOrder is never reordered.
+ * glows); a second miss with that card and Buddy puts it in its place, while the child carries on with the others.
+ * The round's correctOrder is never reordered.
  */
 export function Sequence({ round, deps, onEnd, onReact, quiet }: MechanicProps) {
   const p = round.payload;
@@ -21,6 +22,8 @@ export function Sequence({ round, deps, onEnd, onReact, quiet }: MechanicProps) 
   const later = useLater();
   const { w, h } = useViewport();
   const filled = useRef<readonly string[]>([]); // card ids placed, in any order
+  // a card Buddy is showing waits for him to put it in (no third miss, no race with his hand); the others stay free
+  const showing = useRef<readonly string[]>([]);
   const [, redraw] = useState(0);
   const slotOf = (cardId: string) => p.correctOrder.indexOf(cardId);
   const nextEmpty = p.correctOrder.findIndex((id) => !filled.current.includes(id));
@@ -39,24 +42,30 @@ export function Sequence({ round, deps, onEnd, onReact, quiet }: MechanicProps) 
 
   const dnd = useDnd({
     onDrop(cardId, target) {
-      if (flow.ended || filled.current.includes(cardId) || !target.startsWith('slot:')) return;
+      if (flow.ended || filled.current.includes(cardId) || showing.current.includes(cardId) || !target.startsWith('slot:')) return;
       const slot = Number(target.slice(5));
       if (filled.current.includes(p.correctOrder[slot] ?? '')) return; // that slot is already done
       flow.touch();
       if (slotOf(cardId) === slot) place(cardId);
-      else if (flow.miss(cardId, `${cardId}>${target}`) === 'show') later(() => place(cardId), SHOW_MS);
+      else if (flow.miss(cardId, `${cardId}>${target}`) === 'show') {
+        showing.current = [...showing.current, cardId];
+        redraw((n) => n + 1);
+        later(() => place(cardId), SHOW_MS);
+      }
     },
     onPick: () => flow.touch(),
   });
 
   const n = p.correctOrder.length;
-  const size = Math.round(Math.min((w - 160) / n - 70, h * 0.2, 150));
+  // the slots stay on one row: each is size + 70 wide (min-width size + 30, padding, border), each arrow between two adds
+  // 56 (36 + two 10 px gaps), inside the stage's 20 px sides and 8 px to spare; never below 48 px (the phone layout is M4's)
+  const size = Math.floor(Math.max(48, Math.min((w - 48 - 56 * (n - 1)) / n - 70, h * 0.2, 150)));
   const card = (id: string) => p.items.find((i) => i.id === id);
   return (
     <div className="stage">
       <div className="tray">
         {p.items.filter((i) => !filled.current.includes(i.id)).map((item) => (
-          <button key={item.id} type="button" aria-label={item.label} {...dnd.itemProps(item.id, !flow.ended)}>
+          <button key={item.id} type="button" aria-label={item.label} {...dnd.itemProps(item.id, !flow.ended && !showing.current.includes(item.id))}>
             <span className={`option ${cueClass(flow.cue, item.id)}`} style={{ width: size + 24, rotate: tiltFor(item.id) }}>
               <Picture asset={item.asset} label="" size={size} />
               <span className="option__label">{item.label}</span>
