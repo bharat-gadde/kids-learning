@@ -1,5 +1,5 @@
 // src/app/screens/Setup.tsx
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { ACCESSORIES, Buddy, BUDDY_COLOURS, type Accessory, type BuddyColour } from '../buddy/Buddy';
 import './setup.css';
 
@@ -10,6 +10,13 @@ export interface NewChild {
 
 /** Names to offer for Buddy, each spoken when tapped (spec §4.7: typed by the parent or chosen from spoken suggestions). */
 export const NAME_IDEAS = ['Gajju', 'Appu', 'Motu', 'Bubbles', 'Coco', 'Peanut'] as const;
+
+/** Return on the tablet's keyboard closes it: it must not submit the form before Buddy's colour, name and accessory are chosen. */
+function closeKeyboardOnEnter(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+  e.preventDefault();
+  e.currentTarget.blur();
+}
 
 /**
  * For a grown-up (spec §4.7): the child's name, then Buddy's colour, name and accessory, with Buddy shown as chosen.
@@ -33,7 +40,7 @@ export function Setup({ onDone, onCancel, speakText }: { onDone: (child: NewChil
         <h1>Set up Buddy</h1>
         <label className="setup__field">
           <span>Child's name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={24} required />
+          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={24} required enterKeyHint="done" onKeyDown={closeKeyboardOnEnter} />
         </label>
         <fieldset className="setup__field">
           <legend>Buddy's colour</legend>
@@ -45,11 +52,11 @@ export function Setup({ onDone, onCancel, speakText }: { onDone: (child: NewChil
         </fieldset>
         <label className="setup__field">
           <span>Buddy's name</span>
-          <input value={buddyName} onChange={(e) => setBuddyName(e.target.value)} placeholder="Buddy" autoComplete="off" maxLength={20} />
+          <input value={buddyName} onChange={(e) => setBuddyName(e.target.value)} placeholder="Buddy" autoComplete="off" maxLength={20} enterKeyHint="done" onKeyDown={closeKeyboardOnEnter} />
         </label>
         <div className="setup__choices">
           {NAME_IDEAS.map((idea) => (
-            <button key={idea} type="button" className={`setup__chip ${idea === buddyName ? 'is-on' : ''}`} onClick={() => { setBuddyName(idea); speakText(idea); }}>{idea}</button>
+            <button key={idea} type="button" className={`setup__chip ${idea === buddyName ? 'is-on' : ''}`} aria-pressed={idea === buddyName} onClick={() => { setBuddyName(idea); speakText(idea); }}>{idea}</button>
           ))}
         </div>
         <fieldset className="setup__field">

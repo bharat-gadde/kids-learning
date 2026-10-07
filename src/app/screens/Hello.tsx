@@ -37,7 +37,8 @@ export function Hello({ profiles, greeting, onStart, onAddChild }: {
           );
         })}
       </div>
-      <IconButton className="hello__add" icon="ui/add.svg" label="Add a child (grown-ups)" onClick={onAddChild} />
+      {/* gone while Buddy greets: Setup opened then would be swept away by the Map */}
+      {!greeting && <IconButton className="hello__add" icon="ui/add.svg" label="Add a child (grown-ups)" onClick={onAddChild} />}
     </div>
   );
 }

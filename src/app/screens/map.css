@@ -8,9 +8,10 @@
 .spot { position: relative; width: 150px; height: 150px; border-radius: 50%; background: var(--card) var(--grain); border: 5px solid rgba(255, 255, 255, 0.8); box-shadow: var(--shadow); display: grid; place-items: center; }
 .spot:active { transform: scale(0.95); }
 .spot.is-suggested { animation: spot-bounce 1.2s ease-in-out infinite; box-shadow: 0 0 0 8px var(--glow), var(--shadow); }
-.spot__arrow { position: absolute; top: -70px; width: 64px; height: 64px; transform: rotate(180deg); animation: arrow-bob 0.9s ease-in-out infinite; }
+/* below the spot, pointing up: above it, the hand would cover the island's title and picture */
+.spot__arrow { position: absolute; bottom: -70px; width: 64px; height: 64px; animation: arrow-bob 0.9s ease-in-out infinite; }
 @keyframes spot-bounce { 50% { transform: translateY(-8px); } }
-@keyframes arrow-bob { 50% { transform: rotate(180deg) translateY(-10px); } }
+@keyframes arrow-bob { 50% { transform: translateY(-10px); } }
 .map__stickers { position: absolute; right: 18px; top: max(14px, env(safe-area-inset-top)); }
-.map__count { position: absolute; right: -6px; bottom: -6px; min-width: 32px; height: 32px; border-radius: 16px; background: var(--glow); font-weight: 700; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; }
+.map__count { pointer-events: none; position: absolute; right: -6px; bottom: -6px; min-width: 32px; height: 32px; border-radius: 16px; background: var(--glow); font-weight: 700; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; }
 .map__buddy { position: absolute; left: 10px; bottom: 6px; pointer-events: none; }
