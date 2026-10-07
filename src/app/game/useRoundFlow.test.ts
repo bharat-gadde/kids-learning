@@ -4,14 +4,21 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cueClass, QUIET, useRoundFlow, type FlowEnd, type Reaction } from './useRoundFlow';
 
-function setup() {
+function setup(unknownLine?: string) {
   const said: string[] = [];
   const sounds: string[] = [];
   const reactions: Reaction[] = [];
   const ends: FlowEnd[] = [];
   let replays = 0;
   const deps = {
-    speaker: { say: (id: string) => { said.push(id); return { caption: id, done: Promise.resolve() }; }, replayPrompt: async () => { replays += 1; } },
+    speaker: {
+      say: (id: string) => {
+        if (id === unknownLine) throw new Error(`unknown line ${id}`); // as Speaker does
+        said.push(id);
+        return { caption: id, done: Promise.resolve() };
+      },
+      replayPrompt: async () => { replays += 1; },
+    },
     sfx: { chime: () => sounds.push('chime'), boop: () => sounds.push('boop'), pop: () => sounds.push('pop') },
   };
   const hook = renderHook(() => useRoundFlow({
@@ -61,9 +68,22 @@ describe('useRoundFlow', () => {
     expect(t.said).toEqual(['fb.try_again', 'fb.shown']);
     expect(t.hook.result.current.cue).toEqual({ ids: ['hint-for-round'], kind: 'show' });
     act(() => t.hook.result.current.done());
+    expect(t.said).toEqual(['fb.try_again', 'fb.shown']); // no cheer
     expect(t.sounds).toEqual(['boop']);
     expect(t.reactions).toEqual(['hmm', 'point']);
     expect(t.ends).toEqual([{ outcome: 'shown', hints: 1, wrongIds: ['b', 'd'] }]);
+  });
+
+  it('counts misses per key: a first miss on each of two items is a hint for each; a second on one, a show', () => {
+    const t = setup();
+    const next: string[] = [];
+    act(() => { next.push(t.hook.result.current.miss('apple', 'apple>b')); });
+    act(() => { next.push(t.hook.result.current.miss('pear', 'pear>a')); });
+    expect(t.hook.result.current.cue).toEqual({ ids: ['hint-for-pear'], kind: 'hint' });
+    act(() => { next.push(t.hook.result.current.miss('apple', 'apple>c')); });
+    expect(next).toEqual(['retry', 'retry', 'show']);
+    expect(t.hook.result.current.cue).toEqual({ ids: ['hint-for-apple'], kind: 'show' });
+    expect(t.said).toEqual(['fb.try_again', 'fb.try_again', 'fb.shown']);
   });
 
   it('says a mechanic\'s own line for a hint and for the cheer (a kindness scene\'s reactions)', () => {
@@ -86,6 +106,36 @@ describe('useRoundFlow', () => {
     expect(t.ends[0]).toMatchObject({ outcome: 'corrected', hints: 1 });
   });
 
+  it('times the quiet spell from the last touch: 8 s, then every 15 s with a wiggle; a touch starts it over', () => {
+    const t = setup();
+    act(() => vi.advanceTimersByTime(7999));
+    expect(t.replays()).toBe(0);
+    act(() => vi.advanceTimersByTime(1));
+    expect(t.replays()).toBe(1); // 8 s: the prompt again, no wiggle
+    act(() => vi.advanceTimersByTime(15_000));
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(t.replays()).toBe(3); // 23 s and 38 s: again, each with a wiggle
+    expect(t.reactions).toEqual(['point', 'point']);
+    act(() => t.hook.result.current.touch());
+    act(() => vi.advanceTimersByTime(8000));
+    expect(t.replays()).toBe(4); // 8 s after the touch: a plain repeat again
+    expect(t.reactions).toEqual(['point', 'point']);
+    act(() => t.hook.result.current.done());
+    expect(t.ends[0]).toMatchObject({ outcome: 'corrected', hints: 2 });
+  });
+
+  it('holds the quiet spell while the page is hidden: no repeat, and no wiggle that nobody sees', () => {
+    const t = setup();
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(t.replays()).toBe(0);
+    hidden.mockRestore();
+    act(() => vi.advanceTimersByTime(QUIET.first));
+    expect(t.replays()).toBe(1); // back: the spell starts over with a plain repeat
+    act(() => t.hook.result.current.done());
+    expect(t.ends[0]).toMatchObject({ outcome: 'correct', hints: 0 });
+  });
+
   it('a touch starts the quiet spell again, and nothing repeats after the round ends', () => {
     const t = setup();
     act(() => vi.advanceTimersByTime(QUIET.first - 1000));
@@ -105,6 +155,14 @@ describe('useRoundFlow', () => {
     act(() => { t.hook.result.current.done(); t.hook.result.current.miss('round', 'x'); t.hook.result.current.step(); });
     expect(t.ends).toHaveLength(1);
     expect(t.sounds).toEqual(['chime']);
+  });
+
+  it('ends the round before it speaks: a line that cannot be said leaves it ended, not stuck', () => {
+    const t = setup('react.missing');
+    expect(() => act(() => t.hook.result.current.done('react.missing'))).toThrow('unknown line react.missing');
+    expect(t.ends).toEqual([{ outcome: 'correct', hints: 0, wrongIds: [] }]);
+    act(() => {}); // the update the throw left queued (a browser applies it after the handler)
+    expect(t.hook.result.current.ended).toBe(true);
   });
 
   it('stops its timers when the round goes away (the Home button)', () => {

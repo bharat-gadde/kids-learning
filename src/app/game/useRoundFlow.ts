@@ -44,7 +44,10 @@ export interface RoundFlow {
   step(): void;
   /** The answer is complete: the round ends, with a cheer (`line`, default a random fb.correct) unless Buddy showed it. */
   done(line?: string): void;
-  /** Any touch: the quiet-spell timer starts again. */
+  /**
+   * Any touch: the quiet-spell timer starts again. The spell first starts when the round mounts; a mechanic whose
+   * choices appear later (a scene playing first) calls this as they appear.
+   */
   touch(): void;
 }
 
@@ -85,6 +88,12 @@ export function useRoundFlow(options: RoundFlowOptions): RoundFlow {
     const quiet = opts.current.quiet ?? QUIET;
     quietTimer.current = setTimeout(() => {
       if (state.current.outcome !== null) return;
+      if (document.visibilityState === 'hidden') {
+        // nobody to repeat to (another app, a locked screen): start the spell over for when the child is back
+        repeats.current = 0;
+        arm();
+        return;
+      }
       const o = opts.current;
       void o.deps.speaker.replayPrompt();
       if (repeats.current > 0 && dispatch({ type: 'wiggle' }) === 'wiggle') {
@@ -142,13 +151,14 @@ export function useRoundFlow(options: RoundFlowOptions): RoundFlow {
     clearTimeout(quietTimer.current);
     const { outcome, hints, wrongIds } = state.current;
     const o = opts.current;
+    // the round ends before anything is said: a line that cannot be said must not leave it unfinished
+    setEnded(true);
+    o.onEnd({ outcome: outcome as Outcome, hints, wrongIds });
     if (outcome !== 'shown') {
       o.deps.sfx.chime();
       o.deps.speaker.say(line ?? UI_LINES.correct);
       o.onReact?.('cheer');
     }
-    setEnded(true);
-    o.onEnd({ outcome: outcome as Outcome, hints, wrongIds });
   }, []);
 
   return { cue, ended, miss, step, done, touch };
