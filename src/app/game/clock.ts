@@ -1,7 +1,8 @@
 // src/app/game/clock.ts
 /**
  * Record times that never go back or repeat: mastery, bridging, the picker, levelFor and replayRound all order a
- * profile's records by `at`, and one step back (a clock change, two writes in one millisecond) reorders them.
+ * profile's records by `at`, and one step back (a clock change, two writes in one millisecond) reorders them. `at` is
+ * an ordering key, not a date: dates come from the wall clock (`Session.startedAt`).
  */
 export interface Clock {
   now(): number;

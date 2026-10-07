@@ -34,7 +34,8 @@ export function stepFlow(state: FlowState, event: FlowEvent): { state: FlowState
   if (state.outcome !== null) return { state, effect: 'none' };
   switch (event.type) {
     case 'miss': {
-      const n = (state.misses[event.key] ?? 0) + 1;
+      // own keys only: an item id such as 'constructor' must not read Object.prototype's
+      const n = (Object.hasOwn(state.misses, event.key) ? state.misses[event.key] ?? 0 : 0) + 1;
       const next = { ...state, misses: { ...state.misses, [event.key]: n }, wrongIds: [...state.wrongIds, event.wrongId] };
       return n === 1
         ? { state: { ...next, hints: state.hints + 1, hinted: true }, effect: 'hint' }

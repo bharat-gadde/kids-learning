@@ -33,10 +33,21 @@ describe('stepFlow (spec §4.4)', () => {
     expect(r.state).toMatchObject({ outcome: 'corrected', hints: 2 });
   });
 
+  it('counts every key from nought, even a name Object.prototype has', () => {
+    expect(run(miss('constructor'), miss('toString'), miss('__proto__')).effects).toEqual(['hint', 'hint', 'hint']);
+  });
+
   it('a wiggle after a quiet spell is a hint: right after it is corrected', () => {
     const r = run({ type: 'wiggle' }, { type: 'wiggle' }, done);
     expect(r.effects).toEqual(['wiggle', 'wiggle', 'end']);
     expect(r.state).toMatchObject({ outcome: 'corrected', hints: 2 });
+  });
+
+  it('a wiggle is a hint but not a miss, and never undoes a demonstration; a third miss shows again', () => {
+    const wiggle: FlowEvent = { type: 'wiggle' };
+    const r = run(wiggle, miss('round', 'b'), wiggle, miss('round', 'p'), miss('round', 'q'), wiggle, done);
+    expect(r.effects).toEqual(['wiggle', 'hint', 'wiggle', 'show', 'show', 'wiggle', 'end']);
+    expect(r.state).toMatchObject({ outcome: 'shown', hints: 4, wrongIds: ['b', 'p', 'q'] });
   });
 
   it('ignores everything once the round has ended', () => {

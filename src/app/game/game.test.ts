@@ -1,7 +1,7 @@
 // src/app/game/game.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { monotonicClock } from './clock';
-import { createStorageHealth, guarded, WriteQueue } from './storage';
+import { createStorageHealth, guarded, STORAGE_WAIT_MS, WriteQueue } from './storage';
 
 describe('monotonicClock', () => {
   it('follows the wall clock, but never goes back or repeats, and starts after the last record', () => {
@@ -38,5 +38,28 @@ describe('storage', () => {
     expect(done).toEqual([1, 3]);
     expect(health.failures).toBe(1);
     vi.restoreAllMocks();
+  });
+
+  it('moves on from a write that never answers: it counts as failed, the next still runs, and idle() comes', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const health = createStorageHealth();
+      const done: number[] = [];
+      const q = new WriteQueue(health);
+      q.add(() => new Promise(() => {}));
+      q.add(async () => { done.push(2); });
+      let idle = false;
+      void q.idle().then(() => { idle = true; });
+      await vi.advanceTimersByTimeAsync(STORAGE_WAIT_MS - 1);
+      expect(idle).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(idle).toBe(true);
+      expect(done).toEqual([2]);
+      expect(health.failures).toBe(1);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
   });
 });
