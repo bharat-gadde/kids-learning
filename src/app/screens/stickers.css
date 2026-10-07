@@ -1,0 +1,11 @@
+/* src/app/screens/stickers.css */
+.book { padding: 14px 18px 18px; gap: 14px; box-sizing: border-box; }
+.book__bar { display: flex; align-items: center; gap: 18px; }
+.book__tabs { display: flex; gap: 10px; }
+.book__tab { width: 76px; height: 76px; border-radius: 22px; border: 4px solid transparent; display: grid; place-items: center; opacity: 0.6; }
+.book__tab img { width: 52px; height: 52px; }
+.book__tab.is-on { opacity: 1; border-color: var(--ink); }
+.book__page { flex: 1; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 18px; padding: 24px; overflow-y: auto; }
+.book__sticker { width: 116px; height: 116px; display: grid; place-items: center; background: #fff; border-radius: 24px; box-shadow: var(--shadow); }
+.book__sticker.is-empty { background: transparent; box-shadow: none; border: 3px dashed var(--line); }
+.book__sticker.is-shiny { box-shadow: 0 0 0 5px #ffd23f, 0 0 22px 6px rgba(255, 210, 63, 0.7); }

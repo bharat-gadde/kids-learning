@@ -1,0 +1,16 @@
+/* src/app/screens/map.css */
+.map { background: linear-gradient(#bfe3f2, #9fd3ea) ; }
+.map__sea { flex: 1; display: flex; gap: 44px; align-items: center; overflow-x: auto; overflow-y: hidden; padding: 30px 60px 30px 200px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.island { flex: none; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 22px 30px 34px; border-radius: 46% 54% 48% 52% / 40% 42% 58% 60%; box-shadow: 0 10px 0 rgba(61, 47, 39, 0.12), inset 0 -14px 0 rgba(0, 0, 0, 0.06); min-width: 300px; }
+.island__title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 24px; background: rgba(255, 250, 240, 0.85); padding: 6px 18px 6px 8px; border-radius: 30px; }
+.island__title img { width: 52px; height: 52px; }
+.island__spots { display: flex; gap: 22px; }
+.spot { position: relative; width: 150px; height: 150px; border-radius: 50%; background: var(--card) var(--grain); border: 5px solid rgba(255, 255, 255, 0.8); box-shadow: var(--shadow); display: grid; place-items: center; }
+.spot:active { transform: scale(0.95); }
+.spot.is-suggested { animation: spot-bounce 1.2s ease-in-out infinite; box-shadow: 0 0 0 8px var(--glow), var(--shadow); }
+.spot__arrow { position: absolute; top: -70px; width: 64px; height: 64px; transform: rotate(180deg); animation: arrow-bob 0.9s ease-in-out infinite; }
+@keyframes spot-bounce { 50% { transform: translateY(-8px); } }
+@keyframes arrow-bob { 50% { transform: rotate(180deg) translateY(-10px); } }
+.map__stickers { position: absolute; right: 18px; top: max(14px, env(safe-area-inset-top)); }
+.map__count { position: absolute; right: -6px; bottom: -6px; min-width: 32px; height: 32px; border-radius: 16px; background: var(--glow); font-weight: 700; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; }
+.map__buddy { position: absolute; left: 10px; bottom: 6px; pointer-events: none; }

@@ -1,0 +1,18 @@
+/* src/app/screens/setup.css — a grown-up's screen: ordinary text and controls, still finger-sized */
+.setup { flex-direction: row; align-items: center; justify-content: center; gap: 40px; padding: 20px; overflow-y: auto; -webkit-user-select: text; user-select: text; }
+.setup__form { display: flex; flex-direction: column; gap: 14px; padding: 26px 30px; max-width: 520px; width: 100%; max-height: 100%; overflow-y: auto; box-sizing: border-box; }
+.setup h1 { margin: 0; font-size: 30px; }
+.setup__field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; font-size: 18px; color: var(--ink-soft); }
+.setup__field input { font: inherit; font-size: 24px; color: var(--ink); padding: 10px 14px; border-radius: 14px; border: 3px solid var(--line); background: #fff; min-height: 52px; box-sizing: border-box; }
+.setup__choices { display: flex; flex-wrap: wrap; gap: 10px; }
+.setup__swatch { width: 56px; height: 56px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 0 2px var(--line); }
+.setup__swatch.is-on { box-shadow: 0 0 0 5px var(--ink); }
+.setup__chip { min-height: 52px; padding: 0 18px; border-radius: 26px; border: 3px solid var(--line); background: var(--card); font-size: 19px; }
+.setup__chip.is-on { border-color: var(--ink); background: #fff3c4; }
+.setup__actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 6px; }
+.setup__go { min-height: 64px; padding: 0 30px; border-radius: 32px; border: 0; background: var(--good); color: #fff; font-size: 24px; font-weight: 700; box-shadow: var(--shadow); }
+.setup__go:disabled { opacity: 0.4; }
+.setup__secondary { min-height: 64px; padding: 0 22px; border-radius: 32px; border: 3px solid var(--line); background: var(--card); font-size: 20px; }
+.setup__tip { font-size: 16px; color: var(--ink-soft); margin: 4px 0 0; }
+.setup__credits { font-size: 14px; color: var(--ink-soft); margin: 4px 0 0; }
+@media (max-width: 760px) { .setup__preview { display: none; } }
