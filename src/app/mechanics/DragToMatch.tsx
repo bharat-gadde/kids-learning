@@ -91,9 +91,22 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
     if (wordToo && speaksNames) void deps.speaker.word((p.left.find((i) => i.id === id) ?? p.right.find((i) => i.id === id))?.lineId ?? '');
   };
 
+  // a press ends with its own pointer: another finger or a palm lifting leaves it alone
+  const release = (e: ReactPointerEvent<HTMLElement>, drop: boolean) => {
+    const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return; // another finger's: this press goes on
+    drag.current = null;
+    setBand(null);
+    if (!d.moved) return;
+    press.current = 'drag';
+    const target = drop ? dropTargetAt(e.clientX, e.clientY) : null;
+    if (target && target !== d.id) connect(d.id, target);
+  };
+
   const pointer = (id: string) => ({
     onPointerDown(e: ReactPointerEvent<HTMLElement>) {
-      if (flow.ended || busy(id)) return;
+      if (flow.ended || busy(id) || e.button !== 0) return; // a finger, a pen, a mouse's main button
+      if (drag.current?.moved) return; // a palm or another finger while a line is drawn: the drag goes on
       e.currentTarget.setPointerCapture?.(e.pointerId);
       drag.current = { id, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false };
       press.current = 'tap';
@@ -106,22 +119,12 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
       if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < DRAG_PX) return; // a tiny wobble is a tap
       const from = centre(d.id, isLeft(d.id) ? 'left' : 'right');
       if (!from) return;
+      if (!d.moved) setSelected(null); // a drag puts down what a tap picked
       d.moved = true;
       setBand({ x1: from.x, y1: from.y, x2: e.clientX - origin.left, y2: e.clientY - origin.top });
     },
-    onPointerUp(e: ReactPointerEvent<HTMLElement>) {
-      const d = drag.current;
-      drag.current = null;
-      setBand(null);
-      if (!d || !d.moved) return;
-      press.current = 'drag';
-      const target = dropTargetAt(e.clientX, e.clientY);
-      if (target && target !== d.id) connect(d.id, target);
-    },
-    onPointerCancel() {
-      drag.current = null;
-      setBand(null);
-    },
+    onPointerUp: (e: ReactPointerEvent<HTMLElement>) => release(e, true),
+    onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => release(e, false),
     onClick() {
       const pressed = press.current;
       press.current = null;
@@ -137,7 +140,7 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
   });
 
   const rows = Math.max(p.left.length, p.right.length);
-  const size = Math.round(Math.min((h - 220) / rows - 30, w * 0.16, 150));
+  const size = Math.round(Math.max(48, Math.min((h - 220) / rows - 30, w * 0.16, 150)));
   const column = (items: typeof p.left, side: 'left' | 'right') => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: side === 'left' ? 'flex-end' : 'flex-start' }}>
       {items.map((item) => (
