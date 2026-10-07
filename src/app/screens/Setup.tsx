@@ -73,7 +73,7 @@ export function Setup({ onDone, onCancel, speakText }: { onDone: (child: NewChil
           {onCancel && <button type="button" className="setup__secondary" onClick={onCancel}>Cancel</button>}
           <button type="submit" className="setup__go" disabled={!childName}>Let's play!</button>
         </div>
-        <p className="setup__tip">Tip: add Buddy to the home screen (in Safari: Share → Add to Home Screen). It then opens full screen, works offline, and the browser will not clear the child's progress.</p>
+        <p className="setup__tip">Tip: add Buddy to the home screen first (in Safari: Share → Add to Home Screen) and set up there: Safari and the home-screen app keep separate data. It then opens full screen, works offline, and the browser will not clear the child's progress.</p>
         <p className="setup__credits">
           Pictures: <a href="https://openmoji.org" target="_blank" rel="noreferrer">OpenMoji</a>, the open-source emoji project, some combined or redrawn for Buddy, and drawings in its style — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>.
         </p>

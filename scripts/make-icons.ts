@@ -8,9 +8,10 @@ const ICONS = new URL('../public/icons/', import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, ICONS), 'utf8');
 const icon = read('icon.svg');
 const maskable = read('maskable.svg');
+const square = icon.replace(' rx="112"', ''); // iOS rounds the corners itself and shows transparent pixels as black
 
 const out: Array<[file: string, svg: string, size: number]> = [
-  ['apple-touch-icon.png', icon, 180], // iOS home screen
+  ['apple-touch-icon.png', square, 180], // iOS home screen
   ['icon-192.png', icon, 192],
   ['icon-512.png', icon, 512],
   ['maskable-512.png', maskable, 512], // Android crops it to its own shape: Buddy stays inside the safe circle

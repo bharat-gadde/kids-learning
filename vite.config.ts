@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => ({
   base: basePath.endsWith('/') ? basePath : `${basePath}/`,
   plugins: [
     react(),
-    // npm run dev:tablet — https on the local network, which the tablet needs (crypto.randomUUID, the service worker)
+    // npm run dev:tablet — https on the local network: the tablet needs a secure context for crypto.randomUUID. It has no
+    // service worker (none in dev, and a self-signed certificate would block one): install and offline need the published build
     ...(mode === 'tablet' ? [basicSsl()] : []),
     // spec §11: installable, full screen, offline; every picture, font and voice clip is cached on first load
     ...(process.env.VITEST ? [] : [VitePWA({
