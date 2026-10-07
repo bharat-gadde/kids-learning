@@ -12,7 +12,7 @@ export function dropTargetAt(x: number, y: number): string | null {
 }
 
 /** A pointer that moves this far is a drag, not a tap. */
-const DRAG_PX = 10;
+export const DRAG_PX = 10;
 
 export interface Dnd {
   /** the item picked by a tap, waiting for a tap on a target */
@@ -38,17 +38,18 @@ export function useDnd(options: { onDrop: (itemId: string, targetId: string) => 
   opts.current = options;
   const [selected, setSelected] = useState<string | null>(null);
   const drag = useRef<{ id: string; el: HTMLElement; x0: number; y0: number; moved: boolean; pointerId: number } | null>(null);
-  const wasDrag = useRef(false);
+  // how the last press on an item went: the click that follows it is that same press, already picked (a drag is no tap)
+  const press = useRef<'tap' | 'drag' | null>(null);
 
   const release = (drop: boolean, e: ReactPointerEvent<HTMLElement>) => {
     const d = drag.current;
+    if (!d || d.pointerId !== e.pointerId) return; // another finger's: this press goes on
     drag.current = null;
-    if (!d || d.pointerId !== e.pointerId) return;
+    const target = drop && d.moved ? dropTargetAt(e.clientX, e.clientY) : null; // while the item still ignores the pointer
     d.el.classList.remove('is-dragging');
     d.el.style.transform = '';
     if (!d.moved) return;
-    wasDrag.current = true;
-    const target = drop ? dropTargetAt(e.clientX, e.clientY) : null;
+    press.current = 'drag';
     if (target) opts.current.onDrop(d.id, target);
   };
 
@@ -58,10 +59,12 @@ export function useDnd(options: { onDrop: (itemId: string, targetId: string) => 
       'data-drag-id': id,
       className: `draggable${selected === id ? ' is-selected' : ''}`,
       onPointerDown(e) {
-        if (!enabled) return;
+        if (!enabled || e.button !== 0) return; // a finger, a pen, a mouse's main button
+        const d = drag.current;
+        if (d?.moved && d.el.isConnected) return; // a palm or another finger while an item is dragged: the drag goes on
         e.currentTarget.setPointerCapture?.(e.pointerId);
         drag.current = { id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, pointerId: e.pointerId };
-        wasDrag.current = false;
+        press.current = 'tap';
         opts.current.onPick?.(id);
       },
       onPointerMove(e) {
@@ -78,12 +81,10 @@ export function useDnd(options: { onDrop: (itemId: string, targetId: string) => 
       onPointerUp: (e) => release(true, e),
       onPointerCancel: (e) => release(false, e),
       onClick() {
-        if (wasDrag.current) {
-          wasDrag.current = false;
-          return;
-        }
-        if (!enabled) return;
-        if (!drag.current) opts.current.onPick?.(id); // a click without pointer events (keyboard, tests)
+        const pressed = press.current;
+        press.current = null;
+        if (pressed === 'drag' || !enabled) return;
+        if (pressed === null) opts.current.onPick?.(id); // a click with no press before it: the keyboard, tests
         setSelected((s) => (s === id ? null : id));
       },
     }),
