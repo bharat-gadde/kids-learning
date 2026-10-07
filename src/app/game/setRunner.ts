@@ -77,8 +77,12 @@ async function pickerHistory(ctx: PlayContext): Promise<PickerHistory> {
  */
 export async function prepareSet(ctx: PlayContext, topicId: string): Promise<PlaySet> {
   const { template, bridgeFrom } = pickTemplate(ctx.pack, topicId, await pickerHistory(ctx), ctx.random);
-  const level = levelFor(await readOr(ctx, () => setResultsForTemplate(ctx.db, ctx.profileId, template.id), []));
-  const history = await readOr(ctx, () => buildGeneratorHistory(ctx.db, ctx.profileId, template.goalId, ctx.sessionIndex), EMPTY_HISTORY);
+  // read together: a stalled storage holds the set up for one more wait, not two
+  const [results, history] = await Promise.all([
+    readOr(ctx, () => setResultsForTemplate(ctx.db, ctx.profileId, template.id), []),
+    readOr(ctx, () => buildGeneratorHistory(ctx.db, ctx.profileId, template.goalId, ctx.sessionIndex), EMPTY_HISTORY),
+  ]);
+  const level = levelFor(results);
   const seed = ctx.newSeed();
   const rounds = generateSet(ctx.pack, template, { seed, level, history });
   return { template, level, seed, bridgeFrom, rounds: rounds.slice(0, roundsToPlay(rounds.length, ctx.now() - ctx.sessionStartedAt)) };
@@ -95,6 +99,7 @@ export function recordRound(ctx: PlayContext, round: Round, result: RoundResult)
  * and stickers but has none. `correct` counts the rounds right before any hint.
  */
 export function finishSet(ctx: PlayContext, set: PlaySet, results: readonly RoundResult[]): void {
+  if (results.length !== set.rounds.length) return; // part of a set: levelFor would judge it as a whole one
   const result = {
     profileId: ctx.profileId, at: ctx.clock.now(), sessionIndex: ctx.sessionIndex, templateId: set.template.id, goalId: set.template.goalId,
     level: set.level, correct: results.filter((r) => r.outcome === 'correct').length, total: results.length,

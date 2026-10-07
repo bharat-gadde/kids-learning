@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readPack } from '../../engine/content/readPackFromDisk';
 import { generateSet } from '../../engine/generator/round';
-import { attemptsForGoal, createDb, createProfile, startSession, type BuddyDB } from '../../engine/progress/db';
+import { EMPTY_HISTORY, type Round } from '../../engine/generator/types';
+import { attemptsForGoal, createDb, createProfile, setResultsForTemplate, startSession, type BuddyDB } from '../../engine/progress/db';
 import { replayRound } from '../../engine/progress/history';
 import { monotonicClock } from './clock';
 import { finishSet, prepareSet, recordRound, roundsToPlay, suggestNext, type PlayContext, type RoundResult } from './setRunner';
@@ -32,6 +33,7 @@ const right: RoundResult = { outcome: 'correct', hints: 0, durationMs: 1000, wro
 describe('roundsToPlay', () => {
   it('plays the whole set, and five rounds once the session has passed 10 minutes', () => {
     expect(roundsToPlay(6, 9 * 60_000)).toBe(6);
+    expect(roundsToPlay(6, 10 * 60_000)).toBe(6);
     expect(roundsToPlay(6, 10 * 60_000 + 1)).toBe(5);
     expect(roundsToPlay(4, 30 * 60_000)).toBe(4);
   });
@@ -54,12 +56,57 @@ describe('a set, start to finish', () => {
   it('rotates the game when the topic is played again, and raises each game\'s level after two good sets of it', async () => {
     const played: string[] = [];
     for (let i = 0; i < 6; i++) {
+      if (i === 4) ctx.sessionIndex = (await startSession(db, ctx.profileId)).index; // levels carry over to the next visit
       const set = await prepareSet(ctx, 'big-small');
       played.push(`${set.template.id}@${set.level}`);
       for (const round of set.rounds) recordRound(ctx, round, right);
       finishSet(ctx, set, set.rounds.map(() => right));
     }
     expect(played).toEqual(['big-small.tap@1', 'big-small.sort@1', 'big-small.tap@1', 'big-small.sort@1', 'big-small.tap@2', 'big-small.sort@2']);
+    await ctx.writes.idle();
+    const levels = async (id: string) => (await setResultsForTemplate(db, ctx.profileId, id)).map((r) => r.level);
+    expect([await levels('big-small.tap'), await levels('big-small.sort')]).toEqual([[1, 1, 2], [1, 1, 2]]);
+  });
+
+  it('records a finished set\'s result after its rounds: only a round right before any hint counts as correct', async () => {
+    const set = await prepareSet(ctx, 'big-small');
+    expect(set.rounds).toHaveLength(6);
+    const outcomes = ['correct', 'corrected', 'shown', 'correct', 'corrected', 'correct'] as const;
+    const results = set.rounds.map((_, i) => ({ ...right, outcome: outcomes[i]! }));
+    set.rounds.forEach((round, i) => recordRound(ctx, round, results[i]!));
+    finishSet(ctx, set, results);
+    await ctx.writes.idle();
+    const attempts = await attemptsForGoal(db, ctx.profileId, set.template.goalId);
+    const sets = await setResultsForTemplate(db, ctx.profileId, set.template.id);
+    expect(sets).toEqual([{
+      id: expect.any(Number), profileId: ctx.profileId, at: expect.any(Number), sessionIndex: ctx.sessionIndex,
+      templateId: set.template.id, goalId: set.template.goalId, level: 1, correct: 3, total: 6,
+    }]);
+    expect(sets[0]!.at).toBeGreaterThan(Math.max(...attempts.map((a) => a.at)));
+  });
+
+  it('records no result for a set left early: its rounds stay recorded', async () => {
+    const set = await prepareSet(ctx, 'letters');
+    recordRound(ctx, set.rounds[0]!, right);
+    finishSet(ctx, set, [right]);
+    await ctx.writes.idle();
+    expect(await setResultsForTemplate(db, ctx.profileId, set.template.id)).toEqual([]);
+    expect(await attemptsForGoal(db, ctx.profileId, set.template.goalId)).toHaveLength(1);
+  });
+
+  it('builds each set\'s history from the goal\'s rounds before it, in this session, so every set replays (spec §5.4)', async () => {
+    const played: Round[] = [];
+    for (let i = 0; i < 3; i++) {
+      const set = await prepareSet(ctx, 'big-small'); // tap, sort, tap: two games of one goal
+      const rounds = i === 1 ? set.rounds.slice(0, 1) : set.rounds; // the sort is left after its first round
+      for (const round of rounds) recordRound(ctx, round, right);
+      if (rounds === set.rounds) finishSet(ctx, set, rounds.map(() => right));
+      played.push(...rounds);
+    }
+    await ctx.writes.idle();
+    const attempts = await attemptsForGoal(db, ctx.profileId, 'big-small.identify');
+    expect(attempts.map((a) => `${a.templateId}:${a.sessionIndex}`)).toEqual(played.map((r) => `${r.templateId}:${ctx.sessionIndex}`));
+    expect(attempts.map((a) => replayRound(pack, attempts, a))).toEqual(played);
   });
 
   it('cuts a set to five rounds after 10 minutes, and the shorter set still replays', async () => {
@@ -103,7 +150,7 @@ describe('a stalled storage', () => {
       ctx.db = { ...db, attempts: stalled, setResults: stalled } as unknown as BuddyDB;
       let set: Awaited<ReturnType<typeof prepareSet>> | undefined;
       void prepareSet(ctx, 'feelings').then((s) => { set = s; });
-      await vi.advanceTimersByTimeAsync(4 * STORAGE_WAIT_MS); // the write, then the picker's, the levels' and the goal's reads
+      await vi.advanceTimersByTimeAsync(3 * STORAGE_WAIT_MS); // the write, the picker's read, then the levels' and the goal's together
       expect(set?.rounds.length).toBeGreaterThan(0);
       expect(ctx.storage.failures).toBe(4);
     } finally {
@@ -120,6 +167,25 @@ describe('stickers', () => {
     for (const r of [0, 0.3, 0.99]) expect(healthy.has(stickerPicture(rounds, () => r))).toBe(true);
     const letters = generateSet(pack, pack.templates.get('letters.tap')!, { seed: 4, level: 1, history: { recentItemIds: [], lastSlot: null, lastSceneId: null, lastVariantByLine: {} } });
     expect(stickerPicture(letters, () => 0)).toMatch(/^glyph:/);
+  });
+
+  it('never fall back to the stand-in, and show only what was right: a kind act, a clean thing', () => {
+    for (const template of pack.templates.values()) {
+      for (const level of [1, 2, 3] as const) {
+        const rounds = generateSet(pack, template, { seed: 9, level, history: EMPTY_HISTORY });
+        expect(stickerPicture(rounds, () => 0.5), `${template.id}@${level}`).not.toBe('ui/shiny.svg');
+      }
+    }
+    const kind = generateSet(pack, pack.templates.get('kind-fair.scene')!, { seed: 4, level: 1, history: EMPTY_HISTORY });
+    const unkind = new Set(kind.flatMap((r) => (r.payload.kind === 'scenario' ? r.payload.choices.filter((c) => !c.correct).map((c) => c.asset) : [])));
+    const habits = generateSet(pack, pack.templates.get('good-habits.clean')!, { seed: 4, level: 3, history: EMPTY_HISTORY });
+    const clean = new Set([...pack.objects.values()].filter((o) => o.tags.neatAndClean).map((o) => o.asset));
+    const counted = generateSet(pack, pack.templates.get('counting.match')!, { seed: 4, level: 2, history: EMPTY_HISTORY });
+    for (let r = 0; r < 1; r += 0.05) {
+      expect(unkind.has(stickerPicture(kind, () => r))).toBe(false);
+      expect(clean.has(stickerPicture(habits, () => r))).toBe(true);
+      expect(stickerPicture(counted, () => r)).toMatch(/^objects\//); // what was counted, not the numeral
+    }
   });
 
   it('are shiny about one time in fifteen, and go on their island\'s page', () => {
