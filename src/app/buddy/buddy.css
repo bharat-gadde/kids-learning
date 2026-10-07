@@ -1,7 +1,7 @@
-/* src/app/buddy/buddy.css — Buddy's idle life, reactions, dances and actions (spec §4.7). Transforms only, so they stay smooth. */
-.buddy { overflow: visible; touch-action: manipulation; }
+/* src/app/buddy/buddy.css — Buddy's idle life, reactions, dances and actions (spec §4.7), in transforms only. Browsers repaint
+   an SVG for every frame its parts move, so the whole-body moves animate the <svg> itself, which the browser can composite. */
+.buddy { overflow: visible; touch-action: manipulation; transform-origin: 50% 100%; }
 .buddy g { transform-box: fill-box; }
-.b-all { transform-origin: 50% 100%; }
 .b-head { transform-origin: 50% 85%; }
 .b-ear--l { transform-origin: 90% 40%; }
 .b-ear--r { transform-origin: 10% 40%; }
@@ -10,7 +10,7 @@
 .b-arm--l { transform-origin: 80% 5%; }
 .b-arm--r { transform-origin: 20% 5%; }
 .b-torso { transform-origin: 50% 100%; }
-.b-leg--l, .b-leg--r { transform-box: fill-box; transform-origin: 50% 0%; }
+.b-leg--l, .b-leg--r { transform-origin: 50% 0%; }
 
 /* idle: always on underneath (blink, breathe, trunk and ears), except where a move takes the part over */
 .b-eyes { animation: b-blink 4.2s infinite; }
@@ -25,7 +25,7 @@
 @keyframes b-flap-r { 0%, 80%, 100% { transform: rotate(0); } 88% { transform: rotate(6deg); } }
 
 /* reactions (play once) */
-.buddy--cheer .b-all { animation: b-hop 0.5s ease-out 2; }
+.buddy--cheer { animation: b-hop 0.5s ease-out 2; }
 .buddy--cheer .b-arm--l { animation: b-arm-up-l 0.5s ease-out 2; }
 .buddy--cheer .b-arm--r { animation: b-arm-up-r 0.5s ease-out 2; }
 .buddy--hmm .b-head { animation: b-tilt 1.2s ease-in-out 1 forwards; }
@@ -33,7 +33,7 @@
 .buddy--wave .b-arm--r { animation: b-wave 0.6s ease-in-out 3 alternate; }
 .buddy--yum .b-head { animation: b-nod 0.4s ease-in-out 3; }
 .buddy--yuck .b-head { animation: b-shake 0.25s ease-in-out 4; }
-@keyframes b-hop { 0%, 100% { transform: translateY(0) scale(1, 1); } 15% { transform: translateY(0) scale(1.06, 0.92); } 50% { transform: translateY(-16%) scale(0.96, 1.05); } }
+@keyframes b-hop { 0%, 100% { transform: translateY(0) scale(1, 1); } 15% { transform: translateY(0) scale(1.06, 0.92); } 50% { transform: translateY(-14%) scale(0.96, 1.05); } }
 @keyframes b-arm-up-l { 50% { transform: rotate(110deg); } }
 @keyframes b-arm-up-r { 50% { transform: rotate(-110deg); } }
 @keyframes b-tilt { to { transform: rotate(9deg); } }
@@ -44,7 +44,7 @@
 
 /* dances (loop until the move changes): trunk twirl and elephant stomp, the two a new Buddy knows */
 .buddy--trunk-twirl .b-trunk { animation: b-twirl 1s ease-in-out infinite; }
-.buddy--trunk-twirl .b-all { animation: b-sway-body 2s ease-in-out infinite; }
+.buddy--trunk-twirl { animation: b-sway-body 2s ease-in-out infinite; }
 .buddy--trunk-twirl .b-arm--l { animation: b-arm-swing-l 1s ease-in-out infinite; }
 .buddy--trunk-twirl .b-arm--r { animation: b-arm-swing-r 1s ease-in-out infinite; }
 @keyframes b-twirl { 0% { transform: rotate(0); } 25% { transform: rotate(-70deg); } 50% { transform: rotate(-150deg); } 75% { transform: rotate(-70deg); } 100% { transform: rotate(0); } }
@@ -52,27 +52,44 @@
 @keyframes b-arm-swing-l { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(120deg); } }
 @keyframes b-arm-swing-r { 0%, 100% { transform: rotate(-120deg); } 50% { transform: rotate(-20deg); } }
 
-.buddy--elephant-stomp .b-all { animation: b-stomp-body 0.6s ease-in-out infinite; }
+.buddy--elephant-stomp { animation: b-stomp-body 0.6s ease-in-out infinite; }
 .buddy--elephant-stomp .b-leg--l { animation: b-stomp-leg 1.2s ease-in-out infinite; }
 .buddy--elephant-stomp .b-leg--r { animation: b-stomp-leg 1.2s ease-in-out -0.6s infinite; }
 .buddy--elephant-stomp .b-arm--l { animation: b-pump-l 0.6s ease-in-out infinite; }
 .buddy--elephant-stomp .b-arm--r { animation: b-pump-r 0.6s ease-in-out infinite; }
-@keyframes b-stomp-body { 0%, 100% { transform: translateY(0) scale(1.03, 0.97); } 50% { transform: translateY(-4%) scale(1, 1); } }
+@keyframes b-stomp-body { 0%, 100% { transform: translateY(0) scale(1.03, 0.97); } 50% { transform: translateY(-3.4%) scale(1, 1); } }
 @keyframes b-stomp-leg { 0%, 60%, 100% { transform: translateY(0); } 25% { transform: translateY(-28%); } }
 @keyframes b-pump-l { 50% { transform: rotate(60deg); } }
 @keyframes b-pump-r { 50% { transform: rotate(-60deg); } }
 
 /* actions (play once, about 1.6 s): what "your turn" asks the child to copy */
-.buddy--jump .b-all { animation: b-jump 0.8s cubic-bezier(.3, .7, .4, 1) 2; }
+.buddy--jump { animation: b-jump 0.8s cubic-bezier(.3, .7, .4, 1) 2; }
 .buddy--jump .b-arm--l { animation: b-arm-up-l 0.8s ease-out 2; }
 .buddy--jump .b-arm--r { animation: b-arm-up-r 0.8s ease-out 2; }
-@keyframes b-jump { 0%, 100% { transform: translateY(0) scale(1, 1); } 20% { transform: translateY(0) scale(1.1, 0.85); } 55% { transform: translateY(-34%) scale(0.95, 1.08); } 80% { transform: translateY(0) scale(1.06, 0.94); } }
+@keyframes b-jump { 0%, 100% { transform: translateY(0) scale(1, 1); } 20% { transform: translateY(0) scale(1.1, 0.85); } 55% { transform: translateY(-29%) scale(0.95, 1.08); } 80% { transform: translateY(0) scale(1.06, 0.94); } }
 .buddy--clap .b-arm--l { animation: b-clap-l 0.4s ease-in-out 4; }
 .buddy--clap .b-arm--r { animation: b-clap-r 0.4s ease-in-out 4; }
 @keyframes b-clap-l { 50% { transform: rotate(-58deg); } }
 @keyframes b-clap-r { 50% { transform: rotate(58deg); } }
 
+/* reduced motion: no loops and no motion; a move keeps its key pose, still (the point, the jump to copy) */
 @media (prefers-reduced-motion: reduce) {
   .buddy *, .buddy { animation: none !important; }
+  .buddy--point .b-arm--r { transform: rotate(-80deg); }
+  .buddy--hmm .b-head { transform: rotate(9deg); }
+  .buddy--yuck .b-head { transform: rotate(-7deg); }
+  .buddy--wave .b-arm--r { transform: rotate(-135deg); }
+  .buddy--cheer .b-arm--l, .buddy--jump .b-arm--l { transform: rotate(110deg); }
+  .buddy--cheer .b-arm--r, .buddy--jump .b-arm--r { transform: rotate(-110deg); }
+  .buddy--clap .b-arm--l { transform: rotate(-58deg); }
+  .buddy--clap .b-arm--r { transform: rotate(58deg); }
 }
 .reduced-motion .buddy *, .reduced-motion .buddy { animation: none !important; }
+.reduced-motion .buddy--point .b-arm--r { transform: rotate(-80deg); }
+.reduced-motion .buddy--hmm .b-head { transform: rotate(9deg); }
+.reduced-motion .buddy--yuck .b-head { transform: rotate(-7deg); }
+.reduced-motion .buddy--wave .b-arm--r { transform: rotate(-135deg); }
+.reduced-motion .buddy--cheer .b-arm--l, .reduced-motion .buddy--jump .b-arm--l { transform: rotate(110deg); }
+.reduced-motion .buddy--cheer .b-arm--r, .reduced-motion .buddy--jump .b-arm--r { transform: rotate(-110deg); }
+.reduced-motion .buddy--clap .b-arm--l { transform: rotate(-58deg); }
+.reduced-motion .buddy--clap .b-arm--r { transform: rotate(58deg); }

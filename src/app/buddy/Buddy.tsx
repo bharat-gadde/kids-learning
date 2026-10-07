@@ -12,7 +12,7 @@ export const BUDDY_COLOURS = {
   yellow: { fill: '#f6d87c', shade: '#e2b852' },
 } as const;
 export type BuddyColour = keyof typeof BUDDY_COLOURS;
-export const isBuddyColour = (c: string): c is BuddyColour => c in BUDDY_COLOURS;
+export const isBuddyColour = (c: string): c is BuddyColour => Object.hasOwn(BUDDY_COLOURS, c);
 
 /** Spec §4.7: one accessory. */
 export const ACCESSORIES = ['bow', 'cap', 'scarf', 'glasses'] as const;
@@ -42,6 +42,7 @@ export interface BuddyProps {
   colour: BuddyColour;
   accessory: Accessory;
   expression?: BuddyExpression;
+  /** plays when it changes; to play the same move again, give <Buddy> a new `key` */
   move?: BuddyMove;
   /** rendered height in px; the width follows (5 : 6) */
   size?: number;
@@ -95,14 +96,14 @@ function AccessoryPart({ accessory }: { accessory: Accessory }) {
   switch (accessory) {
     case 'bow':
       return (
-        <g className="b-accessory" stroke={INK} strokeWidth="3" strokeLinejoin="round">
+        <g className="b-accessory b-accessory--bow" stroke={INK} strokeWidth="3" strokeLinejoin="round">
           <path d="M126 44l-18-12v24zM126 44l18-12v24z" fill="#ea5a47" />
           <circle cx="126" cy="44" r="6" fill="#d22f27" />
         </g>
       );
     case 'cap':
       return (
-        <g className="b-accessory" stroke={INK} strokeWidth="3" strokeLinejoin="round">
+        <g className="b-accessory b-accessory--cap" stroke={INK} strokeWidth="3" strokeLinejoin="round">
           <path d="M60 52q4-36 40-36t40 36z" fill="#61b2e4" />
           <path d="M100 52h54q-2 9-16 9h-38z" fill="#1e50a0" />
           <circle cx="100" cy="17" r="5" fill="#fcea2b" />
@@ -110,7 +111,7 @@ function AccessoryPart({ accessory }: { accessory: Accessory }) {
       );
     case 'scarf':
       return (
-        <g className="b-accessory" stroke={INK} strokeWidth="3" strokeLinejoin="round">
+        <g className="b-accessory b-accessory--scarf" stroke={INK} strokeWidth="3" strokeLinejoin="round">
           <path d="M62 142q38 16 76 0v12q-38 16-76 0z" fill="#ea5a47" />
           <path d="M120 150l6 30 14-4-6-28z" fill="#d22f27" />
           <path d="M70 146v12M84 150v12M98 151v12M112 150v12" stroke="#fcea2b" strokeWidth="3" />
@@ -118,7 +119,7 @@ function AccessoryPart({ accessory }: { accessory: Accessory }) {
       );
     case 'glasses':
       return (
-        <g className="b-accessory" fill="rgba(255,255,255,.25)" stroke={INK} strokeWidth="3.5">
+        <g className="b-accessory b-accessory--glasses" fill="rgba(255,255,255,.25)" stroke={INK} strokeWidth="3.5">
           <circle cx="80" cy="86" r="15" />
           <circle cx="120" cy="86" r="15" />
           <path d="M95 86h10M65 84l-12-4M135 84l12-4" fill="none" />
@@ -143,9 +144,14 @@ export function Buddy({ colour, accessory, expression = 'neutral', move = 'idle'
     >
       <g className="b-all">
         <g className="b-legs">
-          <path className="b-leg b-leg--l" d="M68 196h26v30q0 8-8 8H76q-8 0-8-8z" {...body} />
-          <path className="b-leg b-leg--r" d="M106 196h26v30q0 8-8 8h-10q-8 0-8-8z" {...body} />
-          <path d="M74 230h4M82 230h4M112 230h4M120 230h4" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+          <g className="b-leg b-leg--l">
+            <path d="M68 196h26v30q0 8-8 8H76q-8 0-8-8z" {...body} />
+            <path d="M74 230h4M82 230h4" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+          </g>
+          <g className="b-leg b-leg--r">
+            <path d="M106 196h26v30q0 8-8 8h-10q-8 0-8-8z" {...body} />
+            <path d="M112 230h4M120 230h4" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+          </g>
         </g>
         <g className="b-arm b-arm--l"><path d="M62 150q-16 14-16 40a9 9 0 0 0 18 0q0-16 10-28z" {...body} /></g>
         <g className="b-arm b-arm--r"><path d="M138 150q16 14 16 40a9 9 0 0 1-18 0q0-16-10-28z" {...body} /></g>
@@ -172,7 +178,7 @@ export function Buddy({ colour, accessory, expression = 'neutral', move = 'idle'
             <path d="M92 100q-4 30 6 50q8 14 22 8q8-4 6-12q-6 4-11 1q-6-4-7-18q-1-14 2-29z" {...body} />
             <path d="M96 118h10M97 130h10" stroke={shade} strokeWidth="3" strokeLinecap="round" />
           </g>
-          {expression === 'sad' && <path className="b-tear" d="M128 98q4 8 0 12q-4-4 0-12z" fill="#61b2e4" stroke={INK} strokeWidth="2" />}
+          {expression === 'sad' && <path className="b-tear" d="M131 102q7 10 0 16q-7-6 0-16z" fill="#61b2e4" stroke={INK} strokeWidth="2" />}
           <AccessoryPart accessory={accessory} />
         </g>
       </g>

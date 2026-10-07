@@ -20,6 +20,7 @@ describe('Buddy', () => {
       for (const accessory of ACCESSORIES) {
         const { container, unmount } = render(<Buddy colour="grey" accessory={accessory} expression={expression} />);
         expect(container.querySelectorAll('.b-accessory')).toHaveLength(1);
+        expect(container.querySelector(`.b-accessory--${accessory}`)).not.toBeNull();
         unmount();
       }
     }
@@ -33,7 +34,7 @@ describe('Buddy', () => {
   });
 
   it('knows its colours, accessories and expressions by name', () => {
-    expect([isBuddyColour('pink'), isBuddyColour('red'), isAccessory('cap'), isAccessory('crown'), isExpression('angry'), isExpression('sleepy')])
-      .toEqual([true, false, true, false, true, false]);
+    expect([isBuddyColour('pink'), isBuddyColour('red'), isBuddyColour('toString'), isAccessory('cap'), isAccessory('crown'), isExpression('angry'), isExpression('sleepy')])
+      .toEqual([true, false, false, true, false, true, false]);
   });
 });
