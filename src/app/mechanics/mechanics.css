@@ -8,7 +8,6 @@
 }
 .option:active { transform: scale(0.96); }
 .option.is-right { border-color: var(--good); box-shadow: 0 0 0 7px rgba(92, 158, 49, 0.35), var(--shadow); }
-.option.is-faded { opacity: 0.45; }
 .option__mark { position: absolute; right: -14px; top: -14px; width: 48px; height: 48px; pointer-events: none; }
 .option__label { font-size: 17px; color: var(--ink-soft); margin-top: 4px; text-align: center; max-width: 180px; }
 .stimulus { padding: 14px 22px; }

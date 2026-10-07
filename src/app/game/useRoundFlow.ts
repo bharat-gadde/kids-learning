@@ -12,6 +12,8 @@ export const QUIET = { first: 8000, every: 15000 };
 export const CUE_MS = 1800;
 /** How long a mechanic lets Buddy point at an answer before placing it or moving on. */
 export const SHOW_MS = 1600;
+/** A tap this soon on the card that just shook is the same answer again (a bounce, a double tap), not a second miss. */
+export const SETTLE_MS = 500;
 
 /** What to wiggle (a hint) or point out (Buddy showing the answer). */
 export interface Cue {

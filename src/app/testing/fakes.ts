@@ -26,6 +26,9 @@ export interface Recorder {
   replays: number;
 }
 
+/** Speech that never ends, as a stalled clip or speech engine (nothing may wait on it to take input). */
+const stalled = (): Promise<void> => new Promise<void>(() => {});
+
 /** Props for a mechanic under test, and what it did. */
 export function mechanicProps(round: Round): { props: MechanicProps; rec: Recorder } {
   const rec: Recorder = { said: [], words: [], sounds: [], reactions: [], ends: [], replays: 0 };
@@ -33,9 +36,13 @@ export function mechanicProps(round: Round): { props: MechanicProps; rec: Record
     round,
     deps: {
       speaker: {
-        say: (id) => { rec.said.push(id); return { caption: id, done: Promise.resolve() }; },
-        replayPrompt: async () => { rec.replays += 1; },
-        word: async (id) => { rec.words.push(id); },
+        say: (id) => {
+          if (!pack.lines.has(id)) throw new Error(`unknown line ${id}`); // as Speaker.say
+          rec.said.push(id);
+          return { caption: id, done: stalled() };
+        },
+        replayPrompt: () => { rec.replays += 1; return stalled(); },
+        word: (id) => { rec.words.push(id); return stalled(); },
       },
       sfx: { chime: () => rec.sounds.push('chime'), boop: () => rec.sounds.push('boop'), pop: () => rec.sounds.push('pop') },
     },
