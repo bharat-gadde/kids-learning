@@ -14,7 +14,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "prebuild": "npm run validate",
-    "art": "node --import tsx scripts/fetch-art.ts"
+    "art": "node --import tsx scripts/fetch-art.ts",
+    "icons": "node --import tsx scripts/make-icons.ts",
+    "dev:tablet": "vite --host --mode tablet"
   },
   "license": "UNLICENSED",
   "type": "module",
