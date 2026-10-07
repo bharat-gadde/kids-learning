@@ -6,7 +6,7 @@ import { ACTIONS, Buddy, DANCES, type ActionId, type BuddyMove, type DanceId } f
 import type { BuddyLook } from '../mechanics/types';
 import type { Services } from '../services';
 import { artUrl } from '../ui/art';
-import { useLater } from '../ui/hooks';
+import { useLater, useViewport } from '../ui/hooks';
 import { Picture } from '../ui/Picture';
 import './celebration.css';
 
@@ -34,6 +34,7 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
   onDone: () => void;
 }) {
   const later = useLater();
+  const { h } = useViewport();
   const [phase, setPhase] = useState<Phase>('party');
   const [againUsed, setAgainUsed] = useState(false);
   const step = useRef(0);
@@ -132,10 +133,10 @@ export function Celebration({ services, look, sticker, dances, yourTurn, onDone 
       )}
       <span className="icon-button celebration__book" aria-hidden="true"><img src={artUrl('ui/stickers.svg')} alt="" /></span>
       <div className={`celebration__sticker ${phase === 'party' ? '' : 'is-flying'} ${sticker.shiny ? 'is-shiny' : ''}`}>
-        <Picture asset={sticker.pictureId} label="your sticker" size={Math.round(Math.min(140, window.innerHeight * 0.17))} />
+        <Picture asset={sticker.pictureId} label="your sticker" size={Math.round(Math.min(140, h * 0.17))} />
       </div>
       <button type="button" className="celebration__buddy" aria-label="Buddy" onClick={(e) => { e.stopPropagation(); tapBuddy(); }}>
-        <Buddy {...look} move={move} expression={phase === 'your-turn' ? 'neutral' : 'happy'} size={Math.min(window.innerHeight * 0.62, 460)} />
+        <Buddy {...look} move={move} expression={phase === 'your-turn' ? 'neutral' : 'happy'} size={Math.min(h * 0.62, 460)} />
       </button>
       {phase === 'your-turn' && <div className="celebration__count" aria-hidden="true"><b>1</b><b>2</b><b>3</b></div>}
       {phase === 'cheer' && !againUsed && (

@@ -4,14 +4,14 @@ import '@fontsource/andika/latin-400.css';
 import '@fontsource/andika/latin-700.css';
 import './styles/theme.css';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { App, AppBoundary, Trouble } from './App';
 import { createServices } from './services';
 
 const root = createRoot(document.getElementById('root') as HTMLElement);
 createServices().then(
-  (services) => root.render(<App services={services} />),
+  (services) => root.render(<AppBoundary><App services={services} /></AppBoundary>),
   (e: unknown) => {
     console.error(e);
-    root.render(<p style={{ padding: 40 }}>Buddy could not start. Please reload.</p>);
+    root.render(<Trouble />); // with a button: an app on the home screen has no reload
   },
 );

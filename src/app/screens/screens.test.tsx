@@ -1,6 +1,6 @@
 // src/app/screens/screens.test.tsx
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ContentPack } from '../../engine/content/load';
 import type { Topic } from '../../engine/content/schema';
@@ -53,6 +53,24 @@ describe('Hello', () => {
 
   it('uses a safe look for a profile saved with an unknown colour or accessory', () => {
     expect(lookOf(profile('x', 'X', 'teal', 'crown'))).toEqual({ colour: 'grey', accessory: 'cap' });
+  });
+
+  it('sizes Buddy, here and in setup, from the window as it is now: a page can load before its window has a size', () => {
+    const height = window.innerHeight;
+    const sizes = () => [...document.querySelectorAll('svg.buddy')].map((b) => b.getAttribute('height'));
+    try {
+      window.innerHeight = 0;
+      render(<Hello profiles={[profile('a', 'Asha')]} greeting={null} onStart={() => {}} onAddChild={() => {}} />);
+      render(<Setup onDone={() => {}} speakText={() => {}} />);
+      expect(sizes()).toEqual(['0', '0']);
+      act(() => {
+        window.innerHeight = 800;
+        window.dispatchEvent(new Event('resize'));
+      });
+      expect(sizes()).toEqual(['460', '420']);
+    } finally {
+      window.innerHeight = height;
+    }
   });
 });
 

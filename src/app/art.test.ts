@@ -1,5 +1,5 @@
 // src/app/art.test.ts
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -16,6 +16,11 @@ function sources(dir: string): string[] {
   });
 }
 
+/** Every file in public/art by its exact name: macOS finds `ui/Home.svg` for ui/home.svg, GitHub Pages does not. */
+function pictures(dir: string, folder = ''): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? pictures(join(dir, e.name), `${folder}${e.name}/`) : [`${folder}${e.name}`]));
+}
+
 describe('the pictures the app names in its own code', () => {
   it('are all in public/art — icons, islands, vignette parts (validate checks the content\'s)', () => {
     // a renamed path would show a blank stand-in, and jsdom never fires the image's error. Any folder, so new art is
@@ -23,6 +28,7 @@ describe('the pictures the app names in its own code', () => {
     const literal = /['"`](?!vignettes\/)([\w-]+\/[\w-]+\.svg)['"`]/g;
     const named = new Set(sources(APP).flatMap((file) => [...readFileSync(file, 'utf8').matchAll(literal)].map((m) => m[1] as string)));
     expect(named.size).toBeGreaterThan(28);
-    for (const path of named) expect(existsSync(ART + path), path).toBe(true);
+    const have = new Set(pictures(ART));
+    for (const path of named) expect(have.has(path), path).toBe(true);
   });
 });

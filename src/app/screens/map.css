@@ -13,5 +13,5 @@
 @keyframes spot-bounce { 50% { transform: translateY(-8px); } }
 @keyframes arrow-bob { 50% { transform: translateY(-10px); } }
 .map__stickers { position: absolute; right: 18px; top: max(14px, env(safe-area-inset-top)); }
-.map__count { pointer-events: none; position: absolute; right: -6px; bottom: -6px; min-width: 32px; height: 32px; border-radius: 16px; background: var(--glow); font-weight: 700; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; }
+.map__count { position: absolute; right: -6px; bottom: -6px; min-width: 32px; height: 32px; border-radius: 16px; background: var(--glow); font-weight: 700; display: grid; place-items: center; padding: 0 6px; box-sizing: border-box; }
 .map__buddy { position: absolute; left: 10px; bottom: 6px; pointer-events: none; }

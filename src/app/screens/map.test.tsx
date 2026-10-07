@@ -33,5 +33,7 @@ describe('MapScreen', () => {
     expect(onPlay).toHaveBeenCalledWith('counting');
     fireEvent.click(screen.getByLabelText('Sticker book'));
     expect(onStickers).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByText('3')); // the number, outside the button's circle, opens the book too
+    expect(onStickers).toHaveBeenCalledTimes(2);
   });
 });

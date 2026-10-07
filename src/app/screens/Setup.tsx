@@ -1,6 +1,7 @@
 // src/app/screens/Setup.tsx
 import { useState, type KeyboardEvent } from 'react';
 import { ACCESSORIES, Buddy, BUDDY_COLOURS, type Accessory, type BuddyColour } from '../buddy/Buddy';
+import { useViewport } from '../ui/hooks';
 import './setup.css';
 
 export interface NewChild {
@@ -27,6 +28,7 @@ export function Setup({ onDone, onCancel, speakText }: { onDone: (child: NewChil
   const [colour, setColour] = useState<BuddyColour>('grey');
   const [buddyName, setBuddyName] = useState('');
   const [accessory, setAccessory] = useState<Accessory>('cap');
+  const { h } = useViewport();
   const childName = name.trim();
   return (
     <div className="screen setup">
@@ -76,7 +78,7 @@ export function Setup({ onDone, onCancel, speakText }: { onDone: (child: NewChil
           Pictures: <a href="https://openmoji.org" target="_blank" rel="noreferrer">OpenMoji</a>, the open-source emoji project, some combined or redrawn for Buddy, and drawings in its style — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>.
         </p>
       </form>
-      <div className="setup__preview"><Buddy colour={colour} accessory={accessory} size={Math.min(window.innerHeight * 0.6, 420)} /></div>
+      <div className="setup__preview"><Buddy colour={colour} accessory={accessory} size={Math.min(h * 0.6, 420)} /></div>
     </div>
   );
 }

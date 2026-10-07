@@ -76,7 +76,8 @@ export function MapScreen({ services, play, look, stickers, onPlay, onStickers }
       </div>
       <div className="map__stickers">
         <IconButton icon="ui/stickers.svg" label="Sticker book" onClick={onStickers} />
-        {stickers > 0 && <span className="map__count">{stickers}</span>}
+        {/* the number opens the book too: it is the brightest part, what a child taps, and half of it lies outside the round button */}
+        {stickers > 0 && <span className="map__count" aria-hidden="true" onClick={onStickers}>{stickers}</span>}
       </div>
       <div className="map__buddy"><Buddy {...look} move={move} size={170} /></div>
     </div>

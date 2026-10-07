@@ -3,6 +3,7 @@ import type { Profile } from '../../engine/progress/types';
 import { Buddy, isAccessory, isBuddyColour, type BuddyExpression, type BuddyMove } from '../buddy/Buddy';
 import type { BuddyLook } from '../mechanics/types';
 import { artUrl } from '../ui/art';
+import { useViewport } from '../ui/hooks';
 import { IconButton } from '../ui/IconButton';
 import './hello.css';
 
@@ -22,6 +23,7 @@ export function Hello({ profiles, greeting, onStart, onAddChild }: {
   onStart: (profile: Profile) => void;
   onAddChild: () => void;
 }) {
+  const { h } = useViewport(); // kept current: a page can load before its window has a size
   const one = profiles.length === 1;
   return (
     <div className="screen hello">
@@ -30,7 +32,7 @@ export function Hello({ profiles, greeting, onStart, onAddChild }: {
           const greeted = greeting?.profileId === p.id;
           return (
             <button key={p.id} type="button" className="hello__buddy" aria-label={`${p.name}'s ${p.buddy.name || 'Buddy'}`} onClick={() => onStart(p)} disabled={greeting !== null}>
-              <Buddy {...lookOf(p)} size={one ? Math.min(window.innerHeight * 0.62, 460) : Math.min(window.innerHeight * 0.42, 300)} move={greeted ? greeting.move : 'idle'} expression={greeted ? greeting.expression : 'neutral'} />
+              <Buddy {...lookOf(p)} size={one ? Math.min(h * 0.62, 460) : Math.min(h * 0.42, 300)} move={greeted ? greeting.move : 'idle'} expression={greeted ? greeting.expression : 'neutral'} />
               <span className="hello__name">{p.name}</span>
               {one && !greeting && <img className="hello__tap" src={artUrl('ui/point.svg')} alt="" />}
             </button>
