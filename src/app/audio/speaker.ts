@@ -16,9 +16,12 @@ export interface Names {
   buddy: string;
 }
 
-/** Fill the slots captions keep for the profile (spec §4.7); Buddy is "Buddy" until named. */
+/**
+ * Fill the slots captions keep for the profile (spec §4.7); Buddy is "Buddy" until named. One pass, with a function:
+ * a typed name is inserted as it is ("$&" or "{buddy}" in it stay literal).
+ */
 export function fillNames(text: string, names: Names): string {
-  return text.replace(/\{name\}/g, names.name).replace(/\{buddy\}/g, names.buddy || 'Buddy');
+  return text.replace(/\{(name|buddy)\}/g, (_, slot: string) => (slot === 'name' ? names.name : names.buddy || 'Buddy'));
 }
 
 export interface Said {
