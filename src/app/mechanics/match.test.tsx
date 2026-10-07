@@ -97,6 +97,18 @@ describe('DragToMatch', () => {
     expect(item.className).toContain('is-selected');
   });
 
+  it("draws a counted group's card a third wider than a numeral's, and as tall", () => {
+    const round = roundOf('counting.match', 5, 3);
+    const { props } = mechanicProps(round);
+    const { container } = render(<DragToMatch {...props} />);
+    if (round.payload.kind !== 'pairs') throw new Error('pairs');
+    const all = [...round.payload.left, ...round.payload.right];
+    const group = target(container, all.find((i) => i.count !== undefined)!.id).style;
+    const numeral = target(container, all.find((i) => i.count === undefined)!.id).style;
+    expect(group.height).toBe(numeral.height);
+    expect(parseFloat(group.width) - 24).toBe(Math.round(((parseFloat(numeral.width) - 24) * 4) / 3));
+  });
+
   it('says no words for counted groups', () => {
     const round = roundOf('counting.match', 5, 2);
     const { props, rec } = mechanicProps(round);

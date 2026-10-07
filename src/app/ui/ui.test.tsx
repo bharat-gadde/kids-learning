@@ -59,6 +59,16 @@ describe('ItemView', () => {
     expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(groupColumns)).toEqual([1, 2, 3, 2, 3, 3, 4, 4, 3, 4]);
   });
 
+  it('fits a group to its box: square by default, or as wide and tall as the caller gives', () => {
+    const ten = { id: 'applex10', label: '10 apples', lineId: 'obj.apple', asset: 'objects/apple.svg', count: 10 };
+    const each = () => (screen.getByRole('img', { name: '10 apples' }).querySelector('img') as HTMLImageElement).style.width;
+    const { unmount } = render(<ItemView item={ten} size={150} />);
+    expect(each()).toBe('33px'); // 4 columns × 3 rows in 150 × 150: floor(150 / 4) − 4, as before `height`
+    unmount();
+    render(<ItemView item={ten} size={200} height={120} />);
+    expect(each()).toBe('36px'); // in 200 × 120 the 3 rows bind: floor(120 / 3) − 4
+  });
+
   it('scales a size copy', () => {
     render(<ItemView item={{ id: 'apple@0', label: 'apple', lineId: 'obj.apple', asset: 'objects/apple.svg', scale: 0.5 }} size={200} />);
     expect((screen.getByAltText('apple') as HTMLImageElement).style.width).toBe('100px');

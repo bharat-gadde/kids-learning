@@ -27,7 +27,8 @@ export function TapAll({ round, deps, onEnd, onReact, quiet }: MechanicProps) {
   const cols = Math.ceil(p.options.length / 2);
   const gap = Math.min(40, Math.max(14, w * 0.03)); // the row's, clamp(14px, 3vw, 40px)
   // the corner Buddy covers no card: the two rows (each size + 30, tilted) stand above his 150 px (.stage--corner, inside
-  // a stage of h - 128) or, where that would make them smaller, pass beside his 145 px on either side
+  // a stage of h - 128) or, where that would make them smaller, pass beside his 145 px on either side (390: the bar and
+  // stage padding 128, his 150, the two frames 60, and 52 for the rows' gap, at most 40, and the tilt)
   const clear = Math.max((h * 0.98 - 390) / 2, (w - 290 - (cols - 1) * gap) / cols - 30);
   // never below 48 px, so a picture never vanishes or goes negative on a phone (the phone layout is M4's)
   const size = Math.round(Math.max(48, Math.min((w - 120) / cols - 60, (h - 260) / 2 - 40, 200, clear)));

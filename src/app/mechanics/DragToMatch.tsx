@@ -142,7 +142,7 @@ export function DragToMatch({ round, deps, onEnd, onReact, quiet }: MechanicProp
   const rows = Math.max(p.left.length, p.right.length);
   const size = Math.round(Math.max(48, Math.min((h - 220) / rows - 30, w * 0.16, 150)));
   // a counted group's card is a third wider than tall: most groups are wider than they are tall (4 + 4 + 2 for ten), and
-  // the columns' gap has the room. Groups of 2, 3, 5–8 and 10 draw each picture about 40% bigger; 4 and 9 as before
+  // the columns' gap has the room. Groups of 2, 3, 5–8 and 10 draw each picture about 40% bigger; 1, 4 and 9 as before
   const wide = (item: (typeof p.left)[number]) => (item.count !== undefined ? Math.round(size * 4 / 3) : size);
   const column = (items: typeof p.left, side: 'left' | 'right') => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: side === 'left' ? 'flex-end' : 'flex-start' }}>

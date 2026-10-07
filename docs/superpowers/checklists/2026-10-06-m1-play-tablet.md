@@ -18,7 +18,7 @@ For the parent, before and during the first playtests of Plan 1B (spec §14: dev
 - [ ] **Leaving.** The 🏠 button mid-set goes back to the Map. Locking the screen mid-prompt stops the voice.
 - [ ] **Sound after a lock.** Lock the screen mid-set, unlock, answer: the chime still sounds, Buddy's voice says the next prompt, and the next dance has its music. The stomp's thump can be heard on the tablet's own speaker.
 - [ ] **Offline.** After one full visit, turn on airplane mode, close the app and open it again from the home screen: it starts and plays.
-- [ ] **Layout.** Nothing is cut off or overlapping in landscape; the corner Buddy never covers an answer (watch tap-all at level 3, with eight cards, and the first slot of a four- or five-step routine). Portrait and a phone are usable, if cramped (the phone pass is M4).
+- [ ] **Layout.** Nothing is cut off or overlapping in landscape, and the small Buddy in the bottom-left corner never covers an answer. Watch *Good habits & manners* as its games grow (each steps up after two good sets): tapping the clean things with eight cards, and the first place of a four-step routine. Portrait and a phone are usable, if cramped (the phone pass is M4).
 
 ## Playtest with the child (spec §1.2, §14)
 
@@ -28,7 +28,8 @@ For the parent, before and during the first playtests of Plan 1B (spec §14: dev
 - [ ] "Your turn" lands: does the child copy Buddy?
 - [ ] Frustration points: a game, a picture nobody recognises, a word said unclearly. Pictures to watch: *share* (two hands with a biscuit — may read as "please"), *roti* (a striped disc), *crayons* (one crayon); of those drawn for Buddy, *nail cutter*, *handkerchief*, and *mat* (rolled up) and *rug* (fringed), which can meet in a rhyming game.
 - [ ] Levels: how many sets a game takes to move up (it needs a set and the one before it at 85% together). Note any game that never rises, or rises too soon.
-- [ ] Tap-all's first hint wiggles every answer still to find, and so does the plate's: does that give the round away?
+- [ ] When the child is stuck tapping every clean thing (*Good habits*) or filling Buddy's plate (*Fruits, vegetables & healthy food*), the first hint wiggles every answer still to find: does that give the round away?
+- [ ] Does the child use 🔊? Tapped a few seconds after a prompt, it can be cut off by the 8-second repeat, and the prompt starts again. If that happens in play, 🔊 should restart the 8 seconds.
 - [ ] Matching capital and small letters: picking a letter says its name, and both halves of a pair have the same name, so a round can be matched by ear alone. Does the child look at the letters? If not, Buddy should say the name only once the pair is joined.
 - [ ] Counting groups of seven to ten (level 3) draw each picture small: can the child still count them?
 - [ ] Matching by tapping: does the child tap a picked card again, to hear its word or to count a group? That puts it down, so the next tap picks a card instead of joining the pair. If this keeps happening, a tap on the picked card should keep it picked.
