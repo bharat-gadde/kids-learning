@@ -1,11 +1,11 @@
 // src/app/App.test.tsx
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, AppBoundary, GREETING_MAX_MS, GREETING_MS, yourTurnDue } from './App';
 import { UI_LINES } from './audio/uiLines';
-import { STORAGE_WAIT_MS } from './game/storage';
+import { STORAGE_WAIT_MS, WriteQueue } from './game/storage';
 import { DANCE_MS, PARTY_MS, STICKER_MS } from './screens/Celebration';
 import { playAnyhow, settle, useAppTimers, wait } from './testing/play';
 import { testServices } from './testing/services';
@@ -130,6 +130,39 @@ describe('App', () => {
     expect(await services.db.setResults.count()).toBe(0);
     expect(await services.db.stickers.count()).toBe(0);
   }, 30_000);
+
+  it('a second visit, after the tablet\'s clock went back a day, is session 2 and records after the first (the record clock)', async () => {
+    const first = await setUpAndStart();
+    fireEvent.click(screen.getByLabelText('Feelings'));
+    await settle();
+    expect(await playAnyhow()).toBe(true);
+    await wait(PARTY_MS + STICKER_MS + DANCE_MS + 20_000);
+    await first.writes.idle();
+    cleanup(); // the reload: a new App on the same database
+    const real = Date.now;
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => real() - 86_400_000);
+    try {
+      const second = { ...testServices(), db: first.db };
+      second.writes = new WriteQueue(second.storage);
+      render(<App services={second} />);
+      await settle();
+      fireEvent.click(screen.getByLabelText("Asha's Gajju"));
+      await wait(GREETING_MS);
+      fireEvent.click(screen.getByLabelText('Feelings'));
+      await settle();
+      expect(await playAnyhow()).toBe(true);
+      await wait(PARTY_MS + STICKER_MS + DANCE_MS + 20_000);
+      await second.writes.idle();
+    } finally {
+      spy.mockRestore();
+    }
+    const attempts = await first.db.attempts.toArray();
+    const at = (session: number) => attempts.filter((a) => a.sessionIndex === session).map((a) => a.at);
+    expect(at(2).length).toBeGreaterThan(0);
+    expect(Math.min(...at(2))).toBeGreaterThan(Math.max(...at(1)));
+    const sets = (await first.db.setResults.toArray()).sort((a, b) => a.at - b.at);
+    expect(sets.map((s) => s.sessionIndex)).toEqual([1, 2]);
+  }, 60_000);
 
   it('plays every topic on the Map to the end', async () => {
     const services = await setUpAndStart();

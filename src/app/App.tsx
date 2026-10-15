@@ -119,7 +119,7 @@ export function App({ services }: { services: Services }) {
     }
   };
 
-  /** The visit's session and clock; on a storage failure the child still plays, the record kept in memory. */
+  /** The visit's session and record clock; on a storage failure the child still plays, and what can't be stored is dropped (counted in services.storage). */
   const openVisit = async (profile: Profile): Promise<Visit> => {
     const now = services.now();
     const read = async <T,>(r: () => Promise<T>, fallback: T) => within(r()).catch((e: unknown) => {
