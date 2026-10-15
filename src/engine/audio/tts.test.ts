@@ -11,6 +11,13 @@ describe('pickVoice', () => {
     expect(pickVoice([], ['en-IN'])).toBeNull();
     expect(pickVoice([{ lang: 'hi-IN', name: 'Lekha' }], ['en-IN', 'en-GB', 'en-US'])).toBeNull(); // never a non-English voice
   });
+
+  it("prefers the device's own voice to an online one, in any preferred language (spec §10: nothing leaves the device)", () => {
+    const online = { lang: 'en-IN', name: 'Google English (India)', localService: false };
+    const own = { lang: 'en-GB', name: 'Daniel', localService: true };
+    expect(pickVoice([online, own], ['en-IN', 'en-GB', 'en-US'])?.name).toBe('Daniel');
+    expect(pickVoice([online], ['en-IN', 'en-GB', 'en-US'])?.name).toBe('Google English (India)'); // none of its own: it still speaks
+  });
 });
 
 class FakeSynth implements SynthLike {

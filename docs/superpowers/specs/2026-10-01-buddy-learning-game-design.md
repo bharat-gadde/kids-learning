@@ -80,7 +80,7 @@ Hello → Home routine (due steps) → Feelings check-in at the door
 2. **Home routine.** The routine strip shows today's steps for this time of day (§4.2). 2–3 steps are marked *due*; the rest are optional. One random event may be injected. **The door to the Map opens only when the due steps are done.** Each completed step earns a sticker.
 3. **Feelings check-in.** At the door: "How are you feeling today?" — six faces. Buddy responds in kind. If the answer is sad, angry or scared, Buddy offers a balloon breath (the breathe-along mechanic, §6.20) before going out. The answer is logged for the parent.
 4. **Play Map.** Five islands (§4.3), all open — no star-gating. Buddy comes along, small in a corner, pointing at a suggested spot. The child taps any spot.
-5. **A set.** The chosen topic's template picker (§5.4) selects a game the child has not seen lately and generates a fresh round. A set is 5–8 rounds for tap/drag mechanics, fewer for finger mechanics (§6). Feedback rules in §4.4.
+5. **A set.** The chosen topic's template picker (§5.4) selects a game the child has not seen lately and generates a fresh round. A set is 5–8 rounds for tap/drag mechanics (fewer where a round holds several answers, §4.4), fewer for finger mechanics (§6). Feedback rules in §4.4.
 6. **Celebrate.** Buddy performs a dance or action; a sticker flies into the book. Every 2nd–3rd set (random) Buddy adds "Your turn!" (§4.5). Back to the Map.
 7. **Wind-down.** At T−2 min of the parent-set session length, Buddy yawns and the music softens. At T, Buddy *has to go*: in the morning "time for school" (Buddy picks up the bag and leaves through the door), in the afternoon "nap time", in the evening the bedtime routine (bath → change into shorts → story → lamp off). A "Buddy is at school / asleep" screen then shows until the next session is allowed (next time-of-day block, or the parent overrides from the parent corner).
 
@@ -130,7 +130,7 @@ Five islands on one scrolling map. Each island has topic spots (a signpost with 
 
 ### 4.4 Sets, rounds and feedback
 
-- **Set length:** tap/drag mechanics 5–8 rounds (6 by default; 5 once the session has passed 10 minutes); write 4–6 glyphs; dot-to-dot, colour-in, maze, scrub, story, memory-flip and breathe-along are one scene each.
+- **Set length:** tap/drag mechanics 5–8 rounds (6 by default; 5 once the session has passed 10 minutes), fewer where a round holds several answers or a scene (M1's sort, match, sequence, tap-all, give and scene games play 2–5: each template's `rounds`; §5.4 rule 7); write 4–6 glyphs; dot-to-dot, colour-in, maze, scrub, story, memory-flip and breathe-along are one scene each.
 - **Prompt presentation:** Buddy speaks the prompt; a short caption appears with a **🔊 button immediately to its left** (≥ 64 px). Tapping replays the line. After **8 seconds** with no input, Buddy repeats the prompt once, then every 15 seconds with a small hint (the target wiggles).
 - **Correct:** chime, Buddy cheers (random short line), the progress dot fills.
 - **First wrong:** gentle "Hmm, try again" + a hint (the correct option wiggles briefly, or the right bin glows). The wrong option is not removed.
@@ -342,7 +342,7 @@ Each mechanic is one reusable, tested component with a small set of parameters. 
 **Listen & story**
 
 21. **listen-and-find** — a sound or word plays (no text); tap the matching picture or letter from 2–4.
-22. **scene-then-choose** — a 3–6 s animated vignette, then 2–3 choices (faces or actions). Buddy acts out the choice. In "what's kind" rounds an unkind choice makes the other character's face sadder (a sad friend sobs) and Buddy gently suggests trying a kind one — the only place a sad face is a consequence, because that *is* the lesson.
+22. **scene-then-choose** — a 3–6 s animated vignette, then 2–3 choices (faces or actions). Buddy acts out a feeling chosen right, never a wrong one. In "what's kind" rounds a kind choice makes the other character smile; an unkind one makes their face one step sadder (a friend already sad sobs) and Buddy gently suggests trying a kind one — the only place a sad face is a consequence, because that *is* the lesson.
 23. **memory-flip** — 2×2 to 3×4 face-down cards; find pairs (same, capital/small, rhymes, mother/baby, faces).
 
 ### 6.1 The write mechanic (letters, numbers, strokes, shapes)
@@ -441,7 +441,7 @@ Outcome: **great** (shape and placement above threshold) · **nearly** (one comp
 
 **Backup / restore:** one versioned file containing all entities for all profiles (writing samples included), exported via the share sheet and imported on another device. A gentle reminder in the parent corner once a month.
 
-**Privacy:** nothing is transmitted; no accounts; no analytics; no third-party scripts at runtime.
+**Privacy:** nothing is transmitted; no accounts; no analytics; no third-party scripts at runtime. The device voice (§7) is one of the device's own (`localService`) wherever it has one: an online voice, as some of Chrome's are, sends the lines it speaks, the child's name among them, to its provider, so it is used only on a device with no English voice of its own (the README warns the parent).
 
 ---
 
@@ -496,7 +496,7 @@ Units and boundaries (technology choices are made in the implementation plan, wi
 
 **Data flow for one round:** Map tap → template picker (progress store) → round generator → mechanic renders and voices the prompt → child input → mechanic emits `attempt` → progress store updates mastery → rewards decide sticker/celebration → Buddy performs → back to Map.
 
-**Error handling:** a missing picture renders a neutral placeholder and logs the asset id (never blocks a round); a missing clip falls through the audio chain; a storage write failure keeps the session in memory and shows a quiet warning in the parent corner; storage that gives no answer at start-up, or any other failure to start, shows a "try again" screen whose button reloads the app (there is no reload button in a home-screen app); a template that fails validation is excluded at build time, not at play time; any runtime exception inside a mechanic ends the round gracefully (sticker kept) and returns to the Map.
+**Error handling:** a missing picture renders a neutral placeholder and logs the asset id (never blocks a round); a missing clip falls through the audio chain; a storage write failure keeps the session in memory and shows a quiet warning in the parent corner; storage that gives no answer or fails at start-up or when a child is saved, any other failure to start, and a render error outside a mechanic show a "try again" screen whose button reloads the app (there is no reload button in a home-screen app); a template that fails validation is excluded at build time, not at play time; any runtime exception inside a mechanic ends the round gracefully (sticker kept) and returns to the Map.
 
 ---
 
@@ -532,7 +532,7 @@ Four milestones, each a playable vertical slice, in priority order. Durations ar
 
 Parent corner: gate, timer, basic progress list. **Spikes done in M1:** pencil + palm rejection in Safari, audio unlock, home-screen install, storage persistence.
 
-M1 is built in two plans (parent's choice, 2026-10-06): **1B** — the Map, all fifteen games, Buddy, celebrations, stickers, install and offline; **1C** — Buddy's Home and its three routines, the feelings check-in, the timer and wind-down, the parent corner, and the pencil spike.
+M1 is built in two plans (parent's choice, 2026-10-06): **1B** — setup and Hello, the Map, all fifteen games, Buddy, celebrations and "your turn", stickers and the sticker book, the voice, install and offline; **1C** — Buddy's Home and its three routines (with scrub and dress-buddy), the feelings check-in, the timer and wind-down, the parent corner, and the pencil spike.
 
 **M2 — Habits & feelings depth.** The other six Home scenes; the random-event pool; Story & bed with 3 stories; all Awareness and Wellness templates (72); the mechanics they need (find-in-scene, assemble, listen-and-find, memory-flip, breathe-along, odd-one-out, maze, colour-in, tap-the-one with `pairs`); Buddy's full 10 expressions, 6 dances, 5 actions; the reward ladder and unlock ceremonies; free-play corners; feelings and habits views in the parent corner.
 

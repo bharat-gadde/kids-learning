@@ -4,6 +4,8 @@ import type { TtsEngine } from './manager';
 export interface VoiceLike {
   lang: string;
   name: string;
+  /** false for a voice that speaks through its provider's servers (some of Chrome's); a device's own voices are true */
+  localService?: boolean;
 }
 export interface UtteranceLike {
   text: string;
@@ -22,14 +24,21 @@ export interface SynthLike {
 /** The device voice's language, in order of preference (WebSpeechTts's default; primeVoices logs the voice it picks). */
 export const PREFERRED_LANGS: readonly string[] = ['en-IN', 'en-GB', 'en-US', 'en'];
 
-/** First voice whose language matches a preferred prefix, in preference order. */
+/**
+ * The first voice whose language matches a preferred prefix, in preference order, among the device's own voices; only a
+ * device with no English voice of its own gets an online one, which sends the lines it speaks, the child's name among
+ * them, to its provider (spec §10: nothing leaves the device).
+ */
 export function pickVoice(voices: readonly VoiceLike[], preferred: readonly string[]): VoiceLike | null {
-  for (const lang of preferred) {
-    const want = lang.toLowerCase();
-    const voice = voices.find((v) => v.lang.replace('_', '-').toLowerCase().startsWith(want));
-    if (voice) return voice;
-  }
-  return null;
+  const first = (ok: (v: VoiceLike) => boolean): VoiceLike | null => {
+    for (const lang of preferred) {
+      const want = lang.toLowerCase();
+      const voice = voices.find((v) => ok(v) && v.lang.replace('_', '-').toLowerCase().startsWith(want));
+      if (voice) return voice;
+    }
+    return null;
+  };
+  return first((v) => v.localService !== false) ?? first(() => true);
 }
 
 /** Ample time for a short line at rate 0.9; an engine that fires neither end nor error is given up on after this. */

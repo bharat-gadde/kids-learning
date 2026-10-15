@@ -45,6 +45,6 @@ The workflow `.github/workflows/deploy.yml` checks, builds and publishes the app
 4. On the tablet, open that address and add it to the home screen (Safari: **Share → Add to Home Screen**) before setting Buddy up: on an iPad the home-screen app keeps its own data, apart from Safari's. Open it from the home screen once while online (it saves itself for offline then) and set the child up there. It opens full screen and works offline.
 5. After a push, the tablet picks up the new version in two steps: open Buddy once while online, then close it (swipe it away) and open it again.
 
-Nothing in the app leaves the device (spec §10): no accounts, no analytics, no requests except the app's own files. One caution: if a device's speech voice is an online one, as some of Chrome's are, the lines it speaks (the child's name among them) go to that voice's provider; the iPad's voices are on the device.
+Nothing in the app leaves the device (spec §10): no accounts, no analytics, no requests except the app's own files. Buddy speaks with a voice on the device; only a device with no English voice of its own makes it use an online one (as some of Chrome's are), which sends the lines it speaks, the child's name among them, to that voice's provider. The iPad's voices are on the device.
 
 The pictures are OpenMoji and drawings in its style, under CC BY-SA 4.0 ([art/README.md](art/README.md)); the rest of the repository is not licensed for reuse (`UNLICENSED`).
