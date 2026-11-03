@@ -27,7 +27,7 @@
     "howler": "^2.2.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
